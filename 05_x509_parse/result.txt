@@ -1,0 +1,70 @@
+╔══════════════════════════════════════════════╗
+║  mbedTLS 教程 - 05: X.509 证书解析与验证   ║
+╚══════════════════════════════════════════════╝
+
+生成 CA 密钥对 (RSA-2048)...
+生成 EE 密钥对 (ECC P-256)...
+生成自签名 CA 证书...
+生成 EE 证书（由 CA 签名）...
+
+=== 示例1: 证书信息提取 ===
+证书详细信息:
+  cert. version     : 3
+  serial number     : 01
+  issuer name       : CN=Demo Root CA, O=mbedTLS Tutorial, C=CN
+  subject name      : CN=Demo Root CA, O=mbedTLS Tutorial, C=CN
+  issued  on        : 2024-01-01 00:00:00
+  expires on        : 2026-12-31 23:59:59
+  signed using      : RSA with SHA-256
+  RSA key size      : 2048 bits
+  basic constraints : CA=true
+  key usage         : Key Cert Sign, CRL Sign
+
+关键字段提取:
+  版本: v3
+  主体 (Subject): CN=Demo Root CA, O=mbedTLS Tutorial, C=CN
+  颁发者 (Issuer): CN=Demo Root CA, O=mbedTLS Tutorial, C=CN
+  有效期: 2024-01-01 至 2026-12-31
+  公钥类型: RSA
+  公钥位数: 2048 bits
+  是 CA: 是
+
+=== 示例2: 证书链验证 ===
+对应项目中 mbedtls_ssl_conf_ca_chain() + 握手验证
+
+✓ 证书链验证通过!
+  EE 证书的签名由 CA 证书中的公钥验证成功
+
+--- 演示：使用错误的 CA 验证 ---
+✓ 预期失败! 错误标志: 0x0008
+  ! The certificate is not correctly signed by the trusted CA
+  说明: 使用非颁发者的证书验证，签名不匹配
+
+=== 示例3: 自定义验证回调 ===
+参照项目 task_mbedtls.c 中 my_verify() 的实现
+
+使用自定义回调验证证书:
+  [验证回调] 深度 1: CN=Demo Root CA, O=mbedTLS Tutorial, C=CN
+  [验证回调] 标志: 0x0000
+  [验证回调] ✓ 无错误
+  [验证回调] 深度 0: CN=demo-server.local, O=mbedTLS Tutorial, C=CN
+  [验证回调] 标志: 0x0000
+  [验证回调] ✓ 无错误
+
+项目代码对应:
+  mbedtls_ssl_conf_verify(&conf_ext, my_verify, NULL);
+  // my_verify 中: if(tt==0) *flags &= ~EXPIRED & ~FUTURE
+
+✓ 验证通过（可能忽略了时间相关错误）
+
+══════════════════════════════════════════════
+总结:
+  - mbedtls_x509_crt_parse(): 从 PEM/DER 加载证书
+  - mbedtls_x509_crt_verify(): 验证证书链
+  - 验证回调: 可自定义忽略/处理特定错误
+  - 项目模式: CA → SubCA → EE 三级证书链
+  - mbedtls_ssl_conf_ca_chain(): 配置信任锚点
+  - mbedtls_ssl_conf_own_cert(): 配置客户端证书
+══════════════════════════════════════════════
+
+✓ 所有示例运行完成

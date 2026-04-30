@@ -1,0 +1,49 @@
+╔══════════════════════════════════════════════════════════════╗
+║  mbedTLS 教程 - 08: 自定义 BIO 回调 (Custom I/O)          ║
+║  模拟项目 task_mbedtls.c 的 SE ↔ AP 代理架构             ║
+╚══════════════════════════════════════════════════════════════╝
+
+原理说明:
+  mbedtls_ssl_set_bio() 允许替换默认的 socket I/O
+  项目中 SE 没有网络栈，通过 IPC 将数据转发给 AP 处理
+  本示例用 pipe 模拟这一 IPC 机制
+
+数据流:
+  mbedtls_ssl_write() → custom_send() → pipe → Proxy → socket → Server
+  mbedtls_ssl_read()  ← custom_recv() ← pipe ← Proxy ← socket ← Server
+
+[Proxy/AP] 建立到 httpbin.org:443 的 TCP 连接...
+[Proxy/AP] ✓ TCP 连接建立
+[SE/Client] 设置自定义 BIO 回调 (mbedtls_ssl_set_bio)
+  f_send = custom_send → 通过 IPC 发送到 Proxy/AP
+  f_recv = custom_recv → 通过 IPC 从 Proxy/AP 接收
+
+[SE/Client] 执行 TLS 握手 (通过 IPC 代理)...
+[SE/Client] ✓ TLS 握手成功! (通过自定义 BIO)
+[SE/Client]   协议: TLSv1.2
+[SE/Client]   密码套件: TLS-ECDHE-RSA-WITH-AES-128-GCM-SHA256
+
+[SE/Client] 发送 HTTPS 请求 (经过 IPC 代理)...
+[SE/Client] ✓ 已发送 59 bytes
+[SE/Client] 接收响应...
+[SE/Client] 收到 425 bytes
+[SE/Client] 响应: HTTP/1.1 200 OK
+
+✓ 自定义 BIO 通信完成!
+  整个 TLS 通信都通过 IPC → Proxy 转发，与项目架构一致
+[Proxy/AP] 连接已关闭
+
+══════════════════════════════════════════════════════════════
+自定义 BIO 要点:
+  1. mbedtls_ssl_set_bio(ssl, ctx, f_send, f_recv, NULL)
+  2. f_send 返回实际发送字节数（或负数错误码）
+  3. f_recv 返回实际接收字节数（或负数错误码）
+  4. ctx 指针传递给回调，可以是任何上下文
+  5. 适用场景: 嵌入式 IPC、串口、USB、共享内存等
+
+项目代码对应:
+  custom_send ≈ mbedtls_net_send (send_se_cmd_on_channel_warning)
+  custom_recv ≈ mbedtls_net_recv (SYS_EvtGrpWait + warningIObuf)
+  pipe        ≈ warningIObuf + event_group IPC 机制
+  proxy       ≈ AP 的 response_to_se_command_signal()
+══════════════════════════════════════════════════════════════

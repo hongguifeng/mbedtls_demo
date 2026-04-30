@@ -1,0 +1,363 @@
+╔══════════════════════════════════════════════╗
+║  mbedTLS 教程 - 06: TLS 客户端基础连接     ║
+╚══════════════════════════════════════════════╝
+
+[步骤0] 初始化 mbedTLS 组件...
+[步骤1] 初始化随机数生成器...
+  ✓ CTR-DRBG 初始化成功
+[步骤2] 加载 CA 证书...
+  ✓ 已加载 CA 证书
+[步骤3] 配置 SSL/TLS...
+  TLS 版本: 1.2 ~ 1.3
+  认证模式: VERIFY_REQUIRED (强制验证服务器证书)
+  SNI hostname: httpbin.org
+[步骤4] 连接到 httpbin.org:443 ...
+  ✓ TCP 连接建立
+[步骤5] 执行 TLS 握手...
+  证书验证过程:
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_tls.c:4606: => handshake
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2353: => flush output
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2362: <= flush output
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_tls.c:4525: client state: MBEDTLS_SSL_HELLO_REQUEST
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2353: => flush output
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2362: <= flush output
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_tls.c:4525: client state: MBEDTLS_SSL_CLIENT_HELLO
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_client.c:0919: => write client hello
+TLS|ERROR| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_tls13_generic.c:1651: Perform PSA-based ECDH/FFDH computation.
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2783: => write handshake message
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2943: => write record
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:3080: <= write record
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2904: <= write handshake message
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_client.c:1012: <= write client hello
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2353: => flush output
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2367: message length: 452, out_left: 452
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2374: ssl->f_send() returned 452 (-0xfffffe3c)
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2401: <= flush output
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_tls.c:4525: client state: MBEDTLS_SSL_SERVER_HELLO
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_tls13_client.c:1998: => ssl_tls13_process_server_hello
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:4189: => read record
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2155: => fetch input
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2295: in_left: 0, nb_want: 5
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2315: in_left: 0, nb_want: 5
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2318: ssl->f_recv(_timeout)() returned 5 (-0xfffffffb)
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2340: <= fetch input
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2155: => fetch input
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2295: in_left: 5, nb_want: 104
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2315: in_left: 5, nb_want: 104
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2318: ssl->f_recv(_timeout)() returned 99 (-0xffffff9d)
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2340: <= fetch input
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:4261: <= read record
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_tls13_client.c:2043: <= ssl_tls13_process_server_hello ( ServerHello )
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2353: => flush output
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2362: <= flush output
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_tls.c:4525: client state: MBEDTLS_SSL_SERVER_HELLO
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_tls12_client.c:1193: => parse server hello
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:4189: => read record
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:4257: reuse previously read message
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:4261: <= read record
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_tls12_client.c:1445: server hello, total extension length: 23
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_tls12_client.c:1659: <= parse server hello
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2353: => flush output
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2362: <= flush output
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_tls.c:4525: client state: MBEDTLS_SSL_SERVER_CERTIFICATE
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_tls.c:8186: => parse certificate
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:4189: => read record
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2155: => fetch input
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2295: in_left: 0, nb_want: 5
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2315: in_left: 0, nb_want: 5
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2318: ssl->f_recv(_timeout)() returned 5 (-0xfffffffb)
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2340: <= fetch input
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2155: => fetch input
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2295: in_left: 5, nb_want: 3800
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2315: in_left: 5, nb_want: 3800
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2318: ssl->f_recv(_timeout)() returned 2787 (-0xfffff51d)
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2315: in_left: 2792, nb_want: 3800
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2318: ssl->f_recv(_timeout)() returned 1008 (-0xfffffc10)
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2340: <= fetch input
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:4261: <= read record
+  [验证] 深度 2: C=US, O=Amazon, CN=Amazon Root CA 1
+    ✓ 无错误
+  [验证] 深度 1: C=US, O=Amazon, CN=Amazon RSA 2048 M03
+    ✓ 无错误
+  [验证] 深度 0: CN=httpbin.org
+    ✓ 无错误
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_tls.c:8299: <= parse certificate
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2353: => flush output
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2362: <= flush output
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_tls.c:4525: client state: MBEDTLS_SSL_SERVER_KEY_EXCHANGE
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_tls12_client.c:2087: => parse server key exchange
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:4189: => read record
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2155: => fetch input
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2295: in_left: 0, nb_want: 5
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2315: in_left: 0, nb_want: 5
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2318: ssl->f_recv(_timeout)() returned 5 (-0xfffffffb)
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2340: <= fetch input
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2155: => fetch input
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2295: in_left: 5, nb_want: 338
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2315: in_left: 5, nb_want: 338
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2318: ssl->f_recv(_timeout)() returned 333 (-0xfffffeb3)
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2340: <= fetch input
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:4261: <= read record
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_tls12_client.c:1803: ECDH curve: secp256r1
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_tls12_client.c:2457: <= parse server key exchange
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2353: => flush output
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2362: <= flush output
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_tls.c:4525: client state: MBEDTLS_SSL_CERTIFICATE_REQUEST
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_tls12_client.c:2496: => parse certificate request
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:4189: => read record
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2155: => fetch input
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2295: in_left: 0, nb_want: 5
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2315: in_left: 0, nb_want: 5
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2318: ssl->f_recv(_timeout)() returned 5 (-0xfffffffb)
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2340: <= fetch input
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2155: => fetch input
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2295: in_left: 5, nb_want: 9
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2315: in_left: 5, nb_want: 9
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2318: ssl->f_recv(_timeout)() returned 4 (-0xfffffffc)
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2340: <= fetch input
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:4261: <= read record
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_tls12_client.c:2658: <= parse certificate request
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2353: => flush output
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2362: <= flush output
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_tls.c:4525: client state: MBEDTLS_SSL_SERVER_HELLO_DONE
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_tls12_client.c:2669: => parse server hello done
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:4189: => read record
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:4257: reuse previously read message
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:4261: <= read record
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_tls12_client.c:2697: <= parse server hello done
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2353: => flush output
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2362: <= flush output
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_tls.c:4525: client state: MBEDTLS_SSL_CLIENT_CERTIFICATE
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_tls.c:7592: => write certificate
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_tls.c:7603: <= skip write certificate
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2353: => flush output
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2362: <= flush output
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_tls.c:4525: client state: MBEDTLS_SSL_CLIENT_KEY_EXCHANGE
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_tls12_client.c:2712: => write client key exchange
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2783: => write handshake message
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2943: => write record
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2353: => flush output
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2367: message length: 75, out_left: 75
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2374: ssl->f_send() returned 75 (-0xffffffb5)
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2401: <= flush output
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:3080: <= write record
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2904: <= write handshake message
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_tls12_client.c:3207: <= write client key exchange
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2353: => flush output
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2362: <= flush output
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_tls.c:4525: client state: MBEDTLS_SSL_CERTIFICATE_VERIFY
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_tls12_client.c:3255: => write certificate verify
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_tls.c:7206: => derive keys
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_tls.c:7330: => calc verify
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_tls.c:7349: <= calc verify
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_tls.c:7257: <= derive keys
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_tls12_client.c:3277: <= skip write certificate verify
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2353: => flush output
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2362: <= flush output
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_tls.c:4525: client state: MBEDTLS_SSL_CLIENT_CHANGE_CIPHER_SPEC
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:5189: => write change cipher spec
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2783: => write handshake message
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2943: => write record
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2353: => flush output
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2367: message length: 6, out_left: 6
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2374: ssl->f_send() returned 6 (-0xfffffffa)
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2401: <= flush output
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:3080: <= write record
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2904: <= write handshake message
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:5202: <= write change cipher spec
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2353: => flush output
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2362: <= flush output
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_tls.c:4525: client state: MBEDTLS_SSL_CLIENT_FINISHED
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_tls.c:8530: => write finished
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_tls.c:8364: => calc finished tls
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_tls.c:8395: <= calc finished
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2783: => write handshake message
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2943: => write record
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:0935: => encrypt buf
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:1474: <= encrypt buf
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2353: => flush output
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2367: message length: 45, out_left: 45
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2374: ssl->f_send() returned 45 (-0xffffffd3)
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2401: <= flush output
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:3080: <= write record
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2904: <= write handshake message
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_tls.c:8632: <= write finished
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2353: => flush output
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2362: <= flush output
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_tls.c:4525: client state: MBEDTLS_SSL_SERVER_CHANGE_CIPHER_SPEC
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_tls12_client.c:3383: => parse new session ticket
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:4189: => read record
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2155: => fetch input
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2295: in_left: 0, nb_want: 5
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2315: in_left: 0, nb_want: 5
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2318: ssl->f_recv(_timeout)() returned 5 (-0xfffffffb)
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2340: <= fetch input
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2155: => fetch input
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2295: in_left: 5, nb_want: 153
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2315: in_left: 5, nb_want: 153
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2318: ssl->f_recv(_timeout)() returned 148 (-0xffffff6c)
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2340: <= fetch input
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:4261: <= read record
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_tls12_client.c:3477: <= parse new session ticket
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2353: => flush output
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2362: <= flush output
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_tls.c:4525: client state: MBEDTLS_SSL_SERVER_CHANGE_CIPHER_SPEC
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:5211: => parse change cipher spec
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:4189: => read record
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2155: => fetch input
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2295: in_left: 0, nb_want: 5
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2315: in_left: 0, nb_want: 5
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2318: ssl->f_recv(_timeout)() returned 5 (-0xfffffffb)
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2340: <= fetch input
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2155: => fetch input
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2295: in_left: 5, nb_want: 6
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2315: in_left: 5, nb_want: 6
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2318: ssl->f_recv(_timeout)() returned 1 (-0xffffffff)
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2340: <= fetch input
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:4261: <= read record
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:5259: <= parse change cipher spec
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2353: => flush output
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2362: <= flush output
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_tls.c:4525: client state: MBEDTLS_SSL_SERVER_FINISHED
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_tls.c:8645: => parse finished
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_tls.c:8364: => calc finished tls
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_tls.c:8395: <= calc finished
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:4189: => read record
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2155: => fetch input
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2295: in_left: 0, nb_want: 5
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2315: in_left: 0, nb_want: 5
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2318: ssl->f_recv(_timeout)() returned 5 (-0xfffffffb)
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2340: <= fetch input
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2155: => fetch input
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2295: in_left: 5, nb_want: 45
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2315: in_left: 5, nb_want: 45
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2318: ssl->f_recv(_timeout)() returned 40 (-0xffffffd8)
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2340: <= fetch input
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:1510: => decrypt buf
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2121: <= decrypt buf
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:4261: <= read record
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_tls.c:8715: <= parse finished
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2353: => flush output
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2362: <= flush output
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_tls.c:4525: client state: MBEDTLS_SSL_FLUSH_BUFFERS
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_tls12_client.c:3585: handshake: done
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2353: => flush output
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2362: <= flush output
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_tls.c:4525: client state: MBEDTLS_SSL_HANDSHAKE_WRAPUP
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_tls.c:4617: <= handshake
+
+  ✓ TLS 握手成功!
+  协议版本: TLSv1.2
+  密码套件: TLS-ECDHE-RSA-WITH-AES-128-GCM-SHA256
+  记录扩展: 29 bytes (每条记录的加密开销)
+  服务器证书: CN=httpbin.org
+
+[步骤6] 发送 HTTPS 请求...
+  请求: GET /get HTTP/1.1
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:6044: => write
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2943: => write record
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:0935: => encrypt buf
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:1474: <= encrypt buf
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2353: => flush output
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2367: message length: 88, out_left: 88
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2374: ssl->f_send() returned 88 (-0xffffffa8)
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2401: <= flush output
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:3080: <= write record
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:6066: <= write
+  ✓ 已发送 59 bytes
+[步骤7] 接收响应...
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:5782: => read
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:4189: => read record
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2155: => fetch input
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2295: in_left: 0, nb_want: 5
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2315: in_left: 0, nb_want: 5
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2318: ssl->f_recv(_timeout)() returned 5 (-0xfffffffb)
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2340: <= fetch input
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2155: => fetch input
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2295: in_left: 5, nb_want: 254
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2315: in_left: 5, nb_want: 254
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2318: ssl->f_recv(_timeout)() returned 249 (-0xffffff07)
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2340: <= fetch input
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:1510: => decrypt buf
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2121: <= decrypt buf
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:4261: <= read record
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:5942: <= read
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:5782: => read
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:4189: => read record
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2155: => fetch input
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2295: in_left: 0, nb_want: 5
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2315: in_left: 0, nb_want: 5
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2318: ssl->f_recv(_timeout)() returned 5 (-0xfffffffb)
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2340: <= fetch input
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2155: => fetch input
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2295: in_left: 5, nb_want: 229
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2315: in_left: 5, nb_want: 229
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2318: ssl->f_recv(_timeout)() returned 224 (-0xffffff20)
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2340: <= fetch input
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:1510: => decrypt buf
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2121: <= decrypt buf
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:4261: <= read record
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:5942: <= read
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:5782: => read
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:4189: => read record
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2155: => fetch input
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2295: in_left: 0, nb_want: 5
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2315: in_left: 0, nb_want: 5
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2318: ssl->f_recv(_timeout)() returned 5 (-0xfffffffb)
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2340: <= fetch input
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2155: => fetch input
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2295: in_left: 5, nb_want: 31
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2315: in_left: 5, nb_want: 31
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2318: ssl->f_recv(_timeout)() returned 26 (-0xffffffe6)
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2340: <= fetch input
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:1510: => decrypt buf
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2121: <= decrypt buf
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:5092: got an alert message, type: [1:0]
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:5106: is a close notify message
+TLS|ERROR| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:4244: mbedtls_ssl_handle_message_type() returned -30848 (-0x7880)
+TLS|ERROR| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:5842: mbedtls_ssl_read_record() returned -30848 (-0x7880)
+  收到 425 bytes
+  响应头:
+HTTP/1.1 200 OK
+Date: Thu, 30 Apr 2026 06:51:35 GMT
+Content-Type: application/json
+Content-Length: 200
+Connection: close
+Server: gunicorn/19.9.0
+Access-Control-Allow-Origin: *
+Access-Control-Allow-Credentials: true
+  ...(body 省略)
+
+  ✓ HTTPS 通信完成!
+
+[步骤8] 清理资源...
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:6187: => write close notify
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:5168: => send alert message
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2943: => write record
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:0935: => encrypt buf
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:1474: <= encrypt buf
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2353: => flush output
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2367: message length: 31, out_left: 31
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2374: ssl->f_send() returned 31 (-0xffffffe1)
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:2401: <= flush output
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:3080: <= write record
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:5180: <= send alert message
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_msg.c:6198: <= write close notify
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_tls.c:5521: => free
+TLS|STATE| /home/gfhong/testcode/mbedtls_demo/build/_deps/mbedtls-src/library/ssl_tls.c:5583: <= free
+  ✓ 资源已释放
+
+══════════════════════════════════════════════
+完整 TLS 客户端流程:
+  1. mbedtls_ssl_config_defaults() - 设置角色和传输方式
+  2. mbedtls_ssl_conf_ca_chain()   - 加载 CA 证书
+  3. mbedtls_ssl_conf_authmode()   - 设置验证模式
+  4. mbedtls_ssl_setup()           - 应用配置
+  5. mbedtls_ssl_set_hostname()    - 设置 SNI
+  6. mbedtls_ssl_set_bio()         - 设置 I/O 回调
+  7. mbedtls_ssl_handshake()       - 执行握手
+  8. mbedtls_ssl_write/read()      - 收发数据
+  9. mbedtls_ssl_close_notify()    - 关闭通知
+══════════════════════════════════════════════
+
+✓ 示例运行完成

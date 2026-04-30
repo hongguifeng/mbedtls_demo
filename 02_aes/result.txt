@@ -1,0 +1,49 @@
+╔══════════════════════════════════════════════╗
+║  mbedTLS 教程 - 02: 对称加密 (AES)         ║
+╚══════════════════════════════════════════════╝
+
+=== 示例1: AES-256-CBC 加密/解密 ===
+明文: "AES-CBC Example!" (16 bytes)
+密钥 (32 bytes): 603deb1015ca71be2b73aef0857d77811f352c073b6108d72d9810a30914dff4
+IV   (16 bytes): 000102030405060708090a0b0c0d0e0f
+密文 (16 bytes): ff1f5293d08e926844593709a0b93dda
+解密: "AES-CBC Example!"
+✓ 加密/解密验证通过
+
+=== 示例2: AES-256-GCM (AEAD) ===
+这是 TLS 中最常用的加密模式
+
+明文: "This is secret data protected by AES-GCM in TLS!" (48 bytes)
+密钥  (32 bytes): feffe9928665731c6d6a8f9467308308feffe9928665731c6d6a8f9467308308
+Nonce (12 bytes): cafebabefacedbaddecaf888
+AAD   (5 bytes): 1703030035
+
+加密结果:
+密文 (48 bytes): df749aa641bb08c222435d14e005448383e944afdaa358673eb7e6e5cb4439a1b0cdc78ee122f123a816eb144b686e3c
+Tag  (16 bytes): 13ac787b64af1dfee23f7473123710c6
+
+解密: "This is secret data protected by AES-GCM in TLS!"
+✓ 解密和认证标签验证均通过
+
+--- 演示篡改检测 ---
+✓ 检测到篡改! 认证失败 (ret = -0x0012)
+  GCM 的认证机制成功阻止了数据篡改
+
+=== 示例3: 通用 Cipher API (AES-128-CTR) ===
+算法: AES-128-CTR
+密钥长度: 128 bits
+明文: "CTR mode turns block cipher into stream cipher" (46 bytes)
+密文 (46 bytes): afd88d53f50f18d5d2a6630784ed81865a441f574710381370c505f7953e07c14a5fb70a1de85a6fddddb87372c8
+解密: "CTR mode turns block cipher into stream cipher"
+✓ CTR 模式加密/解密验证通过
+  注意: CTR 模式明文和密文长度相同（无 padding）
+
+══════════════════════════════════════════════
+总结:
+  - AES-CBC: 经典模式，需 padding，无完整性保护
+  - AES-GCM: TLS 首选，AEAD 提供加密+认证
+  - AES-CTR: 流模式，无 padding，无完整性保护
+  - TLS 优先使用 GCM 因为它一步完成加密和完整性校验
+══════════════════════════════════════════════
+
+✓ 所有示例运行完成

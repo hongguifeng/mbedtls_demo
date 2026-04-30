@@ -1,0 +1,35 @@
+╔══════════════════════════════════════════════╗
+║  mbedTLS 教程 - 07: TLS 双向认证 (mTLS)    ║
+╚══════════════════════════════════════════════╝
+生成测试证书套件...
+  ✓ CA 证书: CN=Demo CA
+  ✓ Server 证书: CN=localhost (ECC P-256)
+  ✓ Client 证书: CN=Client-AP03 (ECC P-256)
+
+启动 TLS 服务器 (要求客户端证书)...
+
+[Client] 加载 CA 证书...
+[Client] 加载客户端证书和私钥 (模拟 AP03)...
+[Client] ✓ 证书与私钥匹配
+[Client] 配置客户端证书 (mbedtls_ssl_conf_own_cert)...
+[Client] 连接到 localhost:14433...
+[Client] 执行 TLS 握手 (双向认证)...
+[Client] ✓ 双向认证握手成功!
+[Client]   协议: TLSv1.3
+[Client]   密码套件: TLS1-3-CHACHA20-POLY1305-SHA256
+[Client]   服务器证书: CN=localhost, O=Tutorial, C=CN
+[Client] 发送: "Hello from mTLS client (AP03)!"
+[Server] 客户端证书验证通过: CN=Client-AP03, O=Tutorial, C=CN
+[Server] 收到: "Hello from mTLS client (AP03)!"
+[Client] 收到: "Hello from mTLS server! Your identity is verified."
+
+✓ 双向认证通信完成!
+
+══════════════════════════════════════════════
+双向认证要点:
+  - 服务器: mbedtls_ssl_conf_authmode(VERIFY_REQUIRED)
+  - 客户端: mbedtls_ssl_conf_own_cert(&conf, &clicert, &key)
+  - 密钥对验证: mbedtls_pk_check_pair()
+  - 项目模式: AP03 EE + AP03_SUBCA → 证书链
+  - 安全: 私钥存储在防篡改内存
+══════════════════════════════════════════════

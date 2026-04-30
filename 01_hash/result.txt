@@ -1,0 +1,36 @@
+╔══════════════════════════════════════════════╗
+║  mbedTLS 教程 - 01: 哈希/摘要算法           ║
+╚══════════════════════════════════════════════╝
+
+=== 示例1: SHA-256 底层 API（流式处理）===
+输入: "Hello, mbedTLS!"
+SHA-256 (32 bytes): e8cfd3e19db0a9d575ffdcf6576284b828feadd252cc70a0d441a22dfbf2444c
+验证: 可以用命令 'echo -n "Hello, mbedTLS!" | sha256sum' 对比
+
+=== 示例2: 通用 MD API ===
+算法: SHA256, 输出长度: 32 bytes
+SHA-256 (32 bytes): e8cfd3e19db0a9d575ffdcf6576284b828feadd252cc70a0d441a22dfbf2444c
+
+算法: SHA384, 输出长度: 48 bytes
+SHA-384 (48 bytes): b5a0b3ddcd52ae6479519d92241fd5196e5f483e764dd501b2621538c677778c50c63015f21e1eae32f3fcb84fb7ef6d
+
+算法: SHA512, 输出长度: 64 bytes
+SHA-512 (64 bytes): c0543424d883a9dc33d0f08c9644e718bd4cc1bac924bc1b560602d2f797713cd811d304b8375f4436c0725c0946d03a17e59e64ee356eefd28535882c6b9745
+
+=== 示例3: 雪崩效应演示 ===
+输入1: "Hello, mbedTLS!"
+Hash1 (32 bytes): e8cfd3e19db0a9d575ffdcf6576284b828feadd252cc70a0d441a22dfbf2444c
+输入2: "Hello, mbedTLs!" (仅改变1个字符)
+Hash2 (32 bytes): 27cd0d135387e127f440d44f8de1728720489483ed9ec8e851a9e3a25043aa7a
+不同的 bit 数: 132 / 256 (约 51.6%)
+理想情况下约 50% 的 bit 不同，这就是雪崩效应
+
+=== 示例4: HMAC-SHA256 ===
+消息: "Hello, mbedTLS!"
+密钥: "my-secret-key-for-hmac"
+HMAC-SHA256 (32 bytes): a404b7b7d35c0ad82a41e54732712369930542e64a98db4702c6503c8eccf5b9
+
+说明: HMAC 需要密钥，只有持有相同密钥的双方才能验证消息完整性
+这与普通 Hash 的区别：攻击者无法在不知道密钥的情况下伪造 HMAC
+
+✓ 所有示例运行完成

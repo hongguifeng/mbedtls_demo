@@ -1,0 +1,74 @@
+╔══════════════════════════════════════════════╗
+║  mbedTLS 教程 - 04: 椭圆曲线密码学 (ECC)   ║
+╚══════════════════════════════════════════════╝
+
+=== 示例1: ECDSA 签名/验签 (P-256) ===
+生成 P-256 (secp256r1) 密钥对...
+✓ P-256 密钥对生成成功 (私钥: 32 bytes, 公钥: 65 bytes)
+
+ECC 公钥 (PEM):
+-----BEGIN PUBLIC KEY-----
+MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEhXb6n8Gz7klnl0dcPCmx4EZRtf3J
+u27nTteADlo2XuKLNdsJ+Aamt97gEvoAmSvEPcf+PIwkhXTclf0rsAMNbw==
+-----END PUBLIC KEY-----
+消息: "TLS CertificateVerify message content"
+ECDSA 签名 (DER) (71 bytes):
+  304502210097dff776a408a336f7dce6f2df80c58b28dae0dc684d6895230971
+  cb2d9041e902200e28b5a0dadd2f6c28b41f87690b37b5d4aa2d38d3920ccca9
+  404e22bc916eb9
+  注意: ECC 签名约 64-72 bytes，远小于 RSA 的 256 bytes
+✓ ECDSA 签名验证通过
+
+=== 示例2: ECDH 密钥交换 (TLS 握手核心) ===
+模拟 TLS 中客户端和服务器的密钥协商过程
+
+步骤1: 客户端生成 ECDHE 密钥对...
+  Client 公钥 (发送给 Server) (66 bytes):
+  4104e03945b08586ce14e2b4d9afd248a9f458c414b5a35f49b435d4b196b611
+  25f76426f1492dded40eb005bf2a30f198115e4491070c37ff1479a01d40c3aa
+  9195
+
+步骤2: 服务器生成 ECDHE 密钥对...
+  Server 公钥 (发送给 Client) (66 bytes):
+  4104b6d59414f56fc0de9f7fba8d135e5022afbeccf097c935b51792adc87a2f
+  4420a2cf4e46f823112d55cc1c50d3ff87b45d82465c4be6c4af7b88c59496e6
+  dd72
+
+步骤3: 交换公钥...
+  ✓ 公钥交换完成
+
+步骤4: 双方独立计算共享密钥...
+  Client 计算的共享密钥 (32 bytes):
+  e129c03b26deb3e4ca863b520f7c7e219e25210341dfef2d1b4b2a3d0db73995
+  Server 计算的共享密钥 (32 bytes):
+  e129c03b26deb3e4ca863b520f7c7e219e25210341dfef2d1b4b2a3d0db73995
+
+✓ 双方共享密钥完全相同!
+  攻击者即使截获了双方的公钥，也无法计算出此密钥
+  此密钥将通过 HKDF 派生出 TLS 会话的对称加密密钥
+
+=== 示例3: PK 层 ECC 密钥操作 ===
+对应项目中 mbedtls_pk_parse_key() 的用法
+
+ECC 私钥 (PEM 格式):
+-----BEGIN EC PRIVATE KEY-----
+MHcCAQEEIDwKnrB9uu+vIXIssZwVtsLffACmYIKKS/Id1VBCVUSsoAoGCCqGSM49
+AwEHoUQDQgAE4I0pNJ+KC11vWitlhV7C+N+Isjvh8zm0gnTFA9WUOkqrXCp8kHcw
+YkoPIO9Kdc562h62WRg8pwk8bT+b0gcFEg==
+-----END EC PRIVATE KEY-----
+从 PEM 重新解析密钥 (模拟 MSCK_cert_and_priv_key_get)...
+✓ 密钥解析成功
+  类型: EC
+  位数: 256 bits
+  可用于签名: 是
+
+══════════════════════════════════════════════
+总结:
+  - ECDSA: 数字签名，用于证书和身份验证
+  - ECDH/ECDHE: 密钥交换，TLS 握手的核心
+  - P-256: TLS 中最常用的椭圆曲线
+  - 前向安全: 每次连接用新密钥对，历史会话不受影响
+  - 项目代码: mbedtls_pk_parse_key() 加载 ECC 私钥
+══════════════════════════════════════════════
+
+✓ 所有示例运行完成

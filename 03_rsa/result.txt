@@ -1,0 +1,68 @@
+╔══════════════════════════════════════════════╗
+║  mbedTLS 教程 - 03: 非对称加密 (RSA)       ║
+╚══════════════════════════════════════════════╝
+
+=== 示例1: RSA-2048 密钥对生成 ===
+正在生成 RSA-2048 密钥对（可能需要几秒钟）...
+✓ RSA-2048 密钥对生成成功
+  密钥长度: 2048 bits
+  公钥指数 e: 65537 (0x10001)
+  应用: TLS 证书签名、身份验证
+
+公钥 (PEM 格式):
+-----BEGIN PUBLIC KEY-----
+MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAvN1j7bSIszGDbEwqFygv
+5n5KsfJBIiPTbKgw2G4HIR5SG7551snDOrr2VZkVMt9AM24/vv7C26YZdbOJCtor
+yP8G4BDoZQ23O0RlxXYyO7Zu11HR56dxO63HyITcP6PI2LFOn8xjkcSY9OW1lEbL
+QHUJ0+tQzC2jSfNXytjrsoOAsSkq+80NgTqTpc/zDppZ9Q+vhUQXx0dG5Ad93PKk
+8LyWIvE7veFL97TAY9whWeYOasZuMUFe/aaK1NnUujmszGKjBNy51rgd35iXfgVr
+CDoT+kgTgx3gxJsn1gdCHKQmmmsGj/6/tU+7tk2ctkeO9DyVNkszjvIK21W8oaQ3
+bwIDAQAB
+-----END PUBLIC KEY-----
+
+=== 示例2: RSA-OAEP 加密/解密 ===
+明文: "Secret session key material" (27 bytes)
+说明: 实际 TLS 中，RSA 加密的是会话密钥（几十字节），不是大量数据
+
+密文 (256 bytes):
+  9fb8625e178103ab0412097f9734cc18ffbd93fb88735a6b1652ae3f9f6eb7ec
+  68d9219a5bb8e864a9e90cd3fe994103547081807ae7579cc3fea03ec9e77262
+  acce9412fbd76fd7013fcfa2441ec0621abc0b68a8bc0cad7a614ec2168aaac9
+  844cb631af46bd1352a0638eea45b54f34a68572e9458fee75640494bd94a59a
+  489ba8d5b39373e22e27d019bd44cffaeec108c8d9e6b5fb75c83468c316c735
+  d1ab18ca5968f1c5cc655a4306e331d6d0a1986b7fb0e5412ad0d0ae21967dab
+  54faa3ea858f98814ec07f55bd2834e0637f4bb7e81a1a3ebf1bae6f61088fee
+  8deccee6a54a4691d81ea148f6665404c083266daf30e2c6c67accde6003b7dc
+解密: "Secret session key material"
+✓ RSA 加密/解密验证通过
+
+=== 示例3: RSA-PSS 数字签名 ===
+消息: "This message is signed by the server's private key"
+SHA-256 摘要 (32 bytes):
+  f946888d86981a1331377769e93a54bb42600e7377dbbe72b64b2140ef9f5e4b
+签名值 (256 bytes):
+  0de51993ab328f76c554c22168398b1bea28a12f4888c258f84d78a652bc740b
+  6c5fd1235474b328bb12776b795233ab54110ced5e6a65203a35f198b76dcc15
+  154cdd22e643f6ecdc6b96f9f0cfa9a36d5afadb89a51f7c28237daa912b4c8e
+  19b525107f98681742d44f47ef19a658eee853cffd20dfb6df78d03a61660b63
+  480f35c6f401fbc20cfe3f084c7e7c3d5301e99f05099bfb716fd2a47bd71416
+  5f209e30ddbce6297ddbb8e5ac8274fdd9d735e828def6d81af58b43225d87b1
+  66502fa0a248ab9c465ac9785594bcef2740bffad185c873c99939bd2a9a6d6c
+  00ff22b8fa60766d7a2b38fcf232ae390daaa91843ab76f79ef67f2a21897395
+✓ 签名验证通过 —— 确认消息来自私钥持有者
+
+--- 演示篡改检测 ---
+✓ 检测到篡改! 签名验证失败 (ret = -0x4380)
+  消息被修改后签名不再匹配
+
+══════════════════════════════════════════════
+总结:
+  - RSA 密钥生成: mbedtls_rsa_gen_key()
+  - RSA 加密: mbedtls_pk_encrypt() (公钥加密)
+  - RSA 解密: mbedtls_pk_decrypt() (私钥解密)
+  - RSA 签名: mbedtls_pk_sign() (私钥签名)
+  - RSA 验签: mbedtls_pk_verify() (公钥验签)
+  - TLS 中 RSA 主要用于证书签名和身份验证
+══════════════════════════════════════════════
+
+✓ 所有示例运行完成
