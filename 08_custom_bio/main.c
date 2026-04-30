@@ -58,6 +58,7 @@
 #include "mbedtls/error.h"
 #include "mbedtls/x509_crt.h"
 #include "mbedtls/pk.h"
+#include "psa/crypto.h"
 #include "mbedtls/platform.h"
 
 /*
@@ -336,13 +337,13 @@ static int tls_client_with_custom_bio(void)
     printf("  整个 TLS 通信都通过 IPC → Proxy 转发，与项目架构一致\n");
 
 client_exit:
-    /* 通知 proxy 关闭 */
+    mbedtls_ssl_close_notify(&ssl);
+
+    /* 通知 proxy 关闭 (必须在 close_notify 之后，否则 proxy 已退出导致 BIO 阻塞) */
     {
         ipc_msg_header_t hdr = {IPC_CMD_CLOSE, 0};
         write(ipc_to_proxy[1], &hdr, sizeof(hdr));
     }
-
-    mbedtls_ssl_close_notify(&ssl);
     mbedtls_ssl_free(&ssl);
     mbedtls_ssl_config_free(&conf);
     mbedtls_x509_crt_free(&cacert);
@@ -368,6 +369,9 @@ int main(void)
     printf("  mbedtls_ssl_write() → custom_send() → pipe → Proxy → socket → Server\n");
     printf("  mbedtls_ssl_read()  ← custom_recv() ← pipe ← Proxy ← socket ← Server\n");
     printf("\n");
+
+    /* 初始化 PSA Crypto */
+    psa_crypto_init();
 
     /* 创建 IPC 通道 (pipe) */
     if (pipe(ipc_to_proxy) < 0 || pipe(ipc_from_proxy) < 0) {

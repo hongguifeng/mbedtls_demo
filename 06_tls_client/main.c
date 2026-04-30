@@ -41,6 +41,7 @@
 #include "mbedtls/debug.h"
 #include "mbedtls/platform.h"
 #include "mbedtls/x509_crt.h"
+#include "psa/crypto.h"
 
 /* 调试回调 - 参照项目中 my_debug() 的实现 */
 static void my_debug(void *ctx, int level, const char *file, int line, const char *str)
@@ -115,6 +116,7 @@ int main(void)
      * 对应项目: mbedtls_ssl_init(), mbedtls_net_init() 等
      */
     printf("\n[步骤0] 初始化 mbedTLS 组件...\n");
+    psa_crypto_init();
     mbedtls_net_init(&server_fd);
     mbedtls_ssl_init(&ssl);
     mbedtls_ssl_config_init(&conf);

@@ -37,6 +37,7 @@
 #include "mbedtls/pk.h"
 #include "mbedtls/debug.h"
 #include "mbedtls/platform.h"
+#include "psa/crypto.h"
 
 /* 共享证书数据 */
 static unsigned char ca_cert_pem[4096];
@@ -409,6 +410,9 @@ int main(void)
     printf("╔══════════════════════════════════════════════╗\n");
     printf("║  mbedTLS 教程 - 07: TLS 双向认证 (mTLS)    ║\n");
     printf("╚══════════════════════════════════════════════╝\n");
+
+    /* 初始化 PSA Crypto */
+    psa_crypto_init();
 
     /* 生成测试证书 */
     int ret = generate_test_certs();
