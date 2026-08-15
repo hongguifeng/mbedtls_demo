@@ -1,49 +1,75 @@
-╔══════════════════════════════════════════════╗
-║  mbedTLS 教程 - 02: 对称加密 (AES)         ║
-╚══════════════════════════════════════════════╝
+╔══════════════════════════════════════════════════════╗
+║  mbedTLS 教程 - 02: 对称加密 (AES) 模式对比实验     ║
+╚══════════════════════════════════════════════════════╝
 
-=== 示例1: AES-256-CBC 加密/解密 ===
-明文: "AES-CBC Example!" (16 bytes)
-密钥 (32 bytes): 603deb1015ca71be2b73aef0857d77811f352c073b6108d72d9810a30914dff4
-IV   (16 bytes): 000102030405060708090a0b0c0d0e0f
-密文 (16 bytes): ff1f5293d08e926844593709a0b93dda
-解密: "AES-CBC Example!"
-✓ 加密/解密验证通过
+════════ 实验1: 基本加解密（同一明文 + 同一密钥）════════
+明文: "AES mode compare!" (19 bytes)
 
-=== 示例2: AES-256-GCM (AEAD) ===
-这是 TLS 中最常用的加密模式
+[CBC] 底层 aes API，一次调用完成：
+  密文 (32 B): af7982f678f498be053f0ec06bc547ca6af8c104d68a13ff09242d851932e7dd
+  解密: "0123456789abcdef0123456789abcdef"
 
-明文: "This is secret data protected by AES-GCM in TLS!" (48 bytes)
-密钥  (32 bytes): feffe9928665731c6d6a8f9467308308feffe9928665731c6d6a8f9467308308
-Nonce (12 bytes): cafebabefacedbaddecaf888
-AAD   (5 bytes): 1703030035
+[GCM] 底层 gcm API，加密时同时产出 Auth Tag：
+  密文 (19 B): e662bb508229b51eb6fd1516a799bda526ea20
+  Tag  (16 B): e98829bc727cb4ad1807c0b499863853
+  解密: "AES mode compare!"
 
-加密结果:
-密文 (48 bytes): df749aa641bb08c222435d14e005448383e944afdaa358673eb7e6e5cb4439a1b0cdc78ee122f123a816eb144b686e3c
-Tag  (16 bytes): 13ac787b64af1dfee23f7473123710c6
+[CTR] 通用 cipher API，update + finish 两步（流式）：
+  密文 (19 B): 4a9a2ed1347872567ef9e478b801b7677b6e69
+  解密: "AES mode compare!"
 
-解密: "This is secret data protected by AES-GCM in TLS!"
-✓ 解密和认证标签验证均通过
+→ 三种模式都能正确加解密，但 API 形态各不相同：
+  CBC: 一次调用，要求 16 字节对齐
+  GCM: 一次调用，额外产出 16 字节 Tag
+  CTR: update/finish 两步，流式接口
 
---- 演示篡改检测 ---
-✓ 检测到篡改! 认证失败 (ret = -0x0012)
-  GCM 的认证机制成功阻止了数据篡改
+════════ 实验2: 密文长度对比（明文 = 19 字节）════════
 
-=== 示例3: 通用 Cipher API (AES-128-CTR) ===
-算法: AES-128-CTR
-密钥长度: 128 bits
-明文: "CTR mode turns block cipher into stream cipher" (46 bytes)
-密文 (46 bytes): afd88d53f50f18d5d2a6630784ed81865a441f574710381370c505f7953e07c14a5fb70a1de85a6fddddb87372c8
-解密: "CTR mode turns block cipher into stream cipher"
-✓ CTR 模式加密/解密验证通过
-  注意: CTR 模式明文和密文长度相同（无 padding）
+  模式    明文长度   密文长度   额外开销        说明
+  ─────────────────────────────────────────────────────
+  CBC      19 B       32 B       +13 B         padding 到 16 字节对齐
+  GCM      19 B       19 B       +16 B Tag       密文等长，Tag 单独传输
+  CTR      19 B       19 B       +0 B            密文等长，无额外开销
 
-══════════════════════════════════════════════
-总结:
-  - AES-CBC: 经典模式，需 padding，无完整性保护
-  - AES-GCM: TLS 首选，AEAD 提供加密+认证
-  - AES-CTR: 流模式，无 padding，无完整性保护
-  - TLS 优先使用 GCM 因为它一步完成加密和完整性校验
-══════════════════════════════════════════════
+→ CBC 的 padding 使密文膨胀 68%，GCM/CTR 无膨胀
+→ TLS 选 GCM：等长 + 自带认证，带宽和安全性兼得
 
-✓ 所有示例运行完成
+════════ 实验3: 篡改检测（密文首字节 XOR 0x01）════════
+
+[CBC] 篡改后解密：
+  解密结果: `.I.Q.......B...1123456789abcdef
+  → 解密没有报错，但输出是乱码（静默损坏，无法检测）
+
+[GCM] 篡改后解密：
+  → 认证失败 (ret = -0x0012)，篡改被成功检测！
+  → GCM 的 Auth Tag 保证了数据完整性
+
+[CTR] 篡改后解密：
+  解密结果: @ES mode compare!..
+  → 解密没有报错，但输出是乱码（静默损坏，无法检测）
+
+→ 只有 GCM 能检测篡改，CBC/CTR 的损坏是静默的
+→ 这就是 TLS 必须用 AEAD 模式（GCM/CCM）的根本原因
+
+════════ 实验4: 通用 Cipher API（运行时切换算法）════════
+
+[通用 API → CBC]
+  算法: AES-256-CBC, 密钥: 256 bits, IV: 16 bytes
+  密文长度: 16 bytes (含 padding)
+
+[通用 API → CTR]
+  算法: AES-256-CTR, 密钥: 256 bits, IV: 16 bytes
+  密文长度: 23 bytes (无 padding)
+
+→ 通用 API 的优势：切换算法只改 type 参数，代码结构不变
+→ 注意：GCM 没有通用 cipher API 的 AEAD 路径，需直接用 gcm.h
+
+══════════════════════════════════════════════════════
+  模式    padding   密文长度   完整性   TLS 适用性
+  ─────────────────────────────────────────────────────
+  CBC     需要      膨胀       无       不推荐
+  GCM     不需要    等长+Tag   有(AEAD)  首选 ✓
+  CTR     不需要    等长       无       可用但需额外 MAC
+══════════════════════════════════════════════════════
+
+✓ 所有实验运行完成

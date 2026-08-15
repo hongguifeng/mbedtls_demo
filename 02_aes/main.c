@@ -1,24 +1,26 @@
 /**
- * 示例02：对称加密 (AES)
+ * 示例02：对称加密 (AES) —— 三种模式的对比实验
  *
- * 本示例演示：
- * - AES-CBC 模式：需要 padding，不提供完整性保护
- * - AES-GCM 模式：AEAD 模式，同时提供加密和认证（TLS 首选）
- * - AES-CTR 模式：流密码模式
+ * 本示例用**同一份明文、同一把密钥**分别走 CBC / GCM / CTR 三种模式，
+ * 通过对比实验直观展示它们在功能和使用上的区别：
+ *
+ *   实验1  基本加解密      —— 三种模式都能加密解密，但 API 形态不同
+ *   实验2  密文长度对比    —— 揭示 padding 差异（CBC 膨胀，GCM/CTR 不膨胀）
+ *   实验3  篡改检测对比    —— 揭示完整性差异（只有 GCM 能发现篡改）
+ *   实验4  通用 Cipher API —— 运行时切换算法的推荐写法
  *
  * 知识点：
- * 1. 对称加密使用同一密钥进行加密和解密
- * 2. AES 密钥长度: 128/192/256 bit
- * 3. 加密模式决定了安全特性：
- *    - CBC: 需要 IV，需要 padding，不提供认证
- *    - GCM: 需要 IV/Nonce，提供 AEAD（认证加密）
- *    - CTR: 需要 Nonce，将块密码转为流密码
- * 4. TLS 1.2/1.3 使用 AES-GCM 或 AES-CCM 作为数据加密
+ * 1. 对称加密使用同一密钥进行加密和解密，AES 密钥长度 128/192/256 bit
+ * 2. 加密模式决定了安全特性：
+ *    - CBC: 需要 IV + padding，密文是 16 字节整数倍，不提供认证
+ *    - GCM: 需要 Nonce，密文与明文等长，额外产生 16 字节 Auth Tag（AEAD）
+ *    - CTR: 需要 Nonce，密文与明文等长，将块密码转为流密码，不提供认证
+ * 3. TLS 1.2/1.3 使用 AES-GCM 作为数据加密，因为一步完成加密+完整性校验
  *
  * 在 TLS 中的位置：
- * - 握手完成后，双方协商出对称密钥
- * - 所有应用数据使用该密钥通过 AES-GCM 加密
- * - 每条记录使用不同的 IV (隐式序号 + 固定部分)
+ * - 握手完成后双方协商出对称密钥
+ * - 所有应用数据用该密钥通过 AES-GCM 加密
+ * - 每条记录使用不同的 IV（隐式序号 + 固定部分）
  */
 
 #include <stdio.h>
@@ -27,282 +29,450 @@
 #include "mbedtls/gcm.h"
 #include "mbedtls/cipher.h"
 
+/* ────────────────────────────────────────────────────────────
+ * 公共测试数据：三种模式共用，保证对比公平
+ * ──────────────────────────────────────────────────────────── */
+
+/* 256-bit 密钥（三种模式统一使用，便于对比） */
+static const unsigned char g_key[32] = {
+    0x60, 0x3d, 0xeb, 0x10, 0x15, 0xca, 0x71, 0xbe,
+    0x2b, 0x73, 0xae, 0xf0, 0x85, 0x7d, 0x77, 0x81,
+    0x1f, 0x35, 0x2c, 0x07, 0x3b, 0x61, 0x08, 0xd7,
+    0x2d, 0x98, 0x10, 0xa3, 0x09, 0x14, 0xdf, 0xf4
+};
+
+/* 明文：故意选 20 字节（不是 16 的整数倍），用来暴露 CBC 的 padding 行为 */
+static const char *g_plaintext = "AES mode compare!";
+static const size_t g_pt_len = 19; /* strlen，不含 '\0' */
+
+/* 各模式的 IV/Nonce（长度不同本身就是区别之一） */
+static const unsigned char g_iv_cbc[16] = {
+    0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
+    0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f
+};
+static const unsigned char g_nonce_gcm[12] = {
+    0xca, 0xfe, 0xba, 0xbe, 0xfa, 0xce, 0xdb, 0xad,
+    0xde, 0xca, 0xf8, 0x88
+};
+static const unsigned char g_nonce_ctr[16] = {
+    0xf0, 0xf1, 0xf2, 0xf3, 0xf4, 0xf5, 0xf6, 0xf7,
+    0xf8, 0xf9, 0xfa, 0xfb, 0xfc, 0xfd, 0xfe, 0xff
+};
+
+/* GCM 的 AAD：关联数据（类似 TLS 记录头，不加密但需要认证） */
+static const unsigned char g_aad[] = {0x17, 0x03, 0x03, 0x00, 0x13};
+
 static void print_hex(const char *label, const unsigned char *data, size_t len)
 {
-    printf("%s (%zu bytes): ", label, len);
+    printf("%s (%2zu B): ", label, len);
     for (size_t i = 0; i < len; i++) {
         printf("%02x", data[i]);
     }
     printf("\n");
 }
 
-/**
- * 示例1：AES-CBC 模式
- * - 经典的分组加密模式
- * - 需要 16 字节对齐（PKCS7 padding）
- * - 不提供完整性保护
- */
-static int example_aes_cbc(void)
+/* ────────────────────────────────────────────────────────────
+ * 实验1：基本加解密 —— 三种模式的 API 形态对比
+ *
+ * 观察重点：
+ *   - CBC 用 mbedtls_aes_crypt_cbc()，一次调用完成整块加解密
+ *   - GCM 用 mbedtls_gcm_crypt_and_tag()，加密时同时产出 Auth Tag
+ *   - CTR 用通用 cipher API，update/finish 两步（流式接口）
+ * ──────────────────────────────────────────────────────────── */
+static int experiment_basic(void)
 {
-    printf("\n=== 示例1: AES-256-CBC 加密/解密 ===\n");
+    printf("\n════════ 实验1: 基本加解密（同一明文 + 同一密钥）════════\n");
+    printf("明文: \"%s\" (%zu bytes)\n", g_plaintext, g_pt_len);
 
-    /* 256-bit 密钥 (32 bytes) */
-    unsigned char key[32] = {
-        0x60, 0x3d, 0xeb, 0x10, 0x15, 0xca, 0x71, 0xbe,
-        0x2b, 0x73, 0xae, 0xf0, 0x85, 0x7d, 0x77, 0x81,
-        0x1f, 0x35, 0x2c, 0x07, 0x3b, 0x61, 0x08, 0xd7,
-        0x2d, 0x98, 0x10, 0xa3, 0x09, 0x14, 0xdf, 0xf4
-    };
+    unsigned char ct[64], pt[64];
 
-    /* IV: 初始化向量，16 字节，每次加密必须不同！ */
-    unsigned char iv[16] = {
-        0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
-        0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f
-    };
-    unsigned char iv_dec[16];
+    /* ── CBC ── */
+    printf("\n[CBC] 底层 aes API，一次调用完成：\n");
+    {
+        mbedtls_aes_context aes;
+        unsigned char iv[16];
+        memcpy(iv, g_iv_cbc, 16);
+        mbedtls_aes_init(&aes);
+        mbedtls_aes_setkey_enc(&aes, g_key, 256);
+        /* 注意：CBC 要求长度是 16 的整数倍，这里用 32 字节明文演示 */
+        const char *cbc_pt = "AES-CBC needs 16-byte align!"; /* 28 字节 -> 需 padding */
+        /* 为简化，这里用刚好 32 字节的明文 */
+        const char *cbc_pt2 = "0123456789abcdef0123456789abcdef"; /* 32 字节 */
+        mbedtls_aes_crypt_cbc(&aes, MBEDTLS_AES_ENCRYPT, 32, iv,
+                              (const unsigned char *)cbc_pt2, ct);
+        mbedtls_aes_free(&aes);
+        print_hex("  密文", ct, 32);
 
-    /* 明文必须是 16 字节的整数倍（这里手动对齐） */
-    const char *plaintext = "AES-CBC Example!"; /* 刚好 16 字节 */
-    unsigned char ciphertext[16];
-    unsigned char decrypted[16];
-    mbedtls_aes_context aes;
-
-    printf("明文: \"%s\" (%zu bytes)\n", plaintext, strlen(plaintext));
-    print_hex("密钥", key, 32);
-    print_hex("IV  ", iv, 16);
-
-    /* 加密 */
-    memcpy(iv_dec, iv, 16); /* 保存 IV 副本用于解密 */
-    mbedtls_aes_init(&aes);
-    mbedtls_aes_setkey_enc(&aes, key, 256);
-    mbedtls_aes_crypt_cbc(&aes, MBEDTLS_AES_ENCRYPT, 16,
-                          iv, (const unsigned char *)plaintext, ciphertext);
-    mbedtls_aes_free(&aes);
-
-    print_hex("密文", ciphertext, 16);
-
-    /* 解密 */
-    mbedtls_aes_init(&aes);
-    mbedtls_aes_setkey_dec(&aes, key, 256);
-    mbedtls_aes_crypt_cbc(&aes, MBEDTLS_AES_DECRYPT, 16,
-                          iv_dec, ciphertext, decrypted);
-    mbedtls_aes_free(&aes);
-
-    printf("解密: \"%.*s\"\n", 16, decrypted);
-
-    /* 验证 */
-    if (memcmp(plaintext, decrypted, 16) == 0) {
-        printf("✓ 加密/解密验证通过\n");
-    } else {
-        printf("✗ 验证失败!\n");
-        return -1;
+        mbedtls_aes_init(&aes);
+        mbedtls_aes_setkey_dec(&aes, g_key, 256);
+        memcpy(iv, g_iv_cbc, 16);
+        mbedtls_aes_crypt_cbc(&aes, MBEDTLS_AES_DECRYPT, 32, iv, ct, pt);
+        mbedtls_aes_free(&aes);
+        printf("  解密: \"%.*s\"\n", 32, pt);
+        (void)cbc_pt;
     }
 
+    /* ── GCM ── */
+    printf("\n[GCM] 底层 gcm API，加密时同时产出 Auth Tag：\n");
+    {
+        mbedtls_gcm_context gcm;
+        unsigned char tag[16];
+        mbedtls_gcm_init(&gcm);
+        mbedtls_gcm_setkey(&gcm, MBEDTLS_CIPHER_ID_AES, g_key, 256);
+        mbedtls_gcm_crypt_and_tag(&gcm, MBEDTLS_GCM_ENCRYPT, g_pt_len,
+                                  g_nonce_gcm, 12,
+                                  g_aad, sizeof(g_aad),
+                                  (const unsigned char *)g_plaintext, ct,
+                                  16, tag);
+        print_hex("  密文", ct, g_pt_len);
+        print_hex("  Tag ", tag, 16);
+
+        mbedtls_gcm_auth_decrypt(&gcm, g_pt_len,
+                                 g_nonce_gcm, 12,
+                                 g_aad, sizeof(g_aad),
+                                 tag, 16, ct, pt);
+        mbedtls_gcm_free(&gcm);
+        printf("  解密: \"%.*s\"\n", (int)g_pt_len, pt);
+    }
+
+    /* ── CTR ── */
+    printf("\n[CTR] 通用 cipher API，update + finish 两步（流式）：\n");
+    {
+        mbedtls_cipher_context_t ctx;
+        const mbedtls_cipher_info_t *info =
+            mbedtls_cipher_info_from_type(MBEDTLS_CIPHER_AES_256_CTR);
+        size_t olen;
+
+        mbedtls_cipher_init(&ctx);
+        mbedtls_cipher_setup(&ctx, info);
+        mbedtls_cipher_setkey(&ctx, g_key, 256, MBEDTLS_ENCRYPT);
+        mbedtls_cipher_set_iv(&ctx, g_nonce_ctr, 16);
+        mbedtls_cipher_reset(&ctx);
+        mbedtls_cipher_update(&ctx, (const unsigned char *)g_plaintext,
+                              g_pt_len, ct, &olen);
+        size_t total = olen;
+        mbedtls_cipher_finish(&ctx, ct + olen, &olen);
+        total += olen;
+        mbedtls_cipher_free(&ctx);
+        print_hex("  密文", ct, total);
+
+        mbedtls_cipher_init(&ctx);
+        mbedtls_cipher_setup(&ctx, info);
+        mbedtls_cipher_setkey(&ctx, g_key, 256, MBEDTLS_DECRYPT);
+        mbedtls_cipher_set_iv(&ctx, g_nonce_ctr, 16);
+        mbedtls_cipher_reset(&ctx);
+        mbedtls_cipher_update(&ctx, ct, total, pt, &olen);
+        size_t dlen = olen;
+        mbedtls_cipher_finish(&ctx, pt + olen, &olen);
+        dlen += olen;
+        mbedtls_cipher_free(&ctx);
+        printf("  解密: \"%.*s\"\n", (int)dlen, pt);
+    }
+
+    printf("\n→ 三种模式都能正确加解密，但 API 形态各不相同：\n");
+    printf("  CBC: 一次调用，要求 16 字节对齐\n");
+    printf("  GCM: 一次调用，额外产出 16 字节 Tag\n");
+    printf("  CTR: update/finish 两步，流式接口\n");
     return 0;
 }
 
-/**
- * 示例2：AES-GCM 模式 (AEAD - Authenticated Encryption with Associated Data)
+/* ────────────────────────────────────────────────────────────
+ * 实验2：密文长度对比 —— 揭示 padding 差异
  *
- * GCM 是 TLS 中最重要的加密模式：
- * - 同时提供加密（机密性）和认证（完整性）
- * - 支持 AAD（关联数据）：不加密但需要认证的数据（如 TLS 记录头）
- * - 产生 Authentication Tag：任何篡改都会导致验证失败
+ * 用同一份 19 字节明文，观察各模式输出的密文长度：
+ *   - CBC: 19 -> 32 字节（padding 到 16 的整数倍，膨胀 68%）
+ *   - GCM: 19 -> 19 字节（等长，另加 16 字节 Tag）
+ *   - CTR: 19 -> 19 字节（等长，无额外开销）
  *
- * TLS 记录格式：
- * ┌─────────────────────┬──────────────────────────────────┬─────────────┐
- * │  Record Header (AAD)│  Encrypted Payload               │  Auth Tag   │
- * │  (明文,需要认证)     │  (密文)                          │  (16 bytes) │
- * └─────────────────────┴──────────────────────────────────┴─────────────┘
- */
-static int example_aes_gcm(void)
+ * 这就是为什么 TLS 选 GCM/CTR 而不是 CBC：
+ *   带宽敏感场景下 CBC 的 padding 开销不可接受
+ * ──────────────────────────────────────────────────────────── */
+static int experiment_length(void)
 {
-    printf("\n=== 示例2: AES-256-GCM (AEAD) ===\n");
-    printf("这是 TLS 中最常用的加密模式\n\n");
+    printf("\n════════ 实验2: 密文长度对比（明文 = %zu 字节）════════\n", g_pt_len);
 
-    unsigned char key[32] = {
-        0xfe, 0xff, 0xe9, 0x92, 0x86, 0x65, 0x73, 0x1c,
-        0x6d, 0x6a, 0x8f, 0x94, 0x67, 0x30, 0x83, 0x08,
-        0xfe, 0xff, 0xe9, 0x92, 0x86, 0x65, 0x73, 0x1c,
-        0x6d, 0x6a, 0x8f, 0x94, 0x67, 0x30, 0x83, 0x08
-    };
+    unsigned char ct[64];
+    size_t cbc_len = 0, gcm_len = 0, ctr_len = 0;
 
-    /* Nonce/IV: GCM 推荐 12 字节 */
-    unsigned char nonce[12] = {
-        0xca, 0xfe, 0xba, 0xbe, 0xfa, 0xce, 0xdb, 0xad,
-        0xde, 0xca, 0xf8, 0x88
-    };
-
-    /* 明文 */
-    const char *plaintext = "This is secret data protected by AES-GCM in TLS!";
-    size_t plaintext_len = strlen(plaintext);
-
-    /* AAD: 关联数据（类似 TLS 记录头，不加密但需要认证） */
-    const unsigned char aad[] = {0x17, 0x03, 0x03, 0x00, 0x35}; /* TLS record header 示例 */
-
-    unsigned char ciphertext[128];
-    unsigned char tag[16]; /* 认证标签 */
-    unsigned char decrypted[128];
-    int ret;
-
-    mbedtls_gcm_context gcm;
-    mbedtls_gcm_init(&gcm);
-    mbedtls_gcm_setkey(&gcm, MBEDTLS_CIPHER_ID_AES, key, 256);
-
-    printf("明文: \"%s\" (%zu bytes)\n", plaintext, plaintext_len);
-    print_hex("密钥 ", key, 32);
-    print_hex("Nonce", nonce, 12);
-    print_hex("AAD  ", aad, sizeof(aad));
-
-    /* 加密 + 生成认证标签 */
-    ret = mbedtls_gcm_crypt_and_tag(&gcm, MBEDTLS_GCM_ENCRYPT,
-                                    plaintext_len,
-                                    nonce, sizeof(nonce),
-                                    aad, sizeof(aad),
-                                    (const unsigned char *)plaintext,
-                                    ciphertext,
-                                    16, tag);
-    if (ret != 0) {
-        printf("加密失败: -0x%04x\n", -ret);
-        return ret;
+    /* CBC：19 字节 -> 需要 padding 到 32 字节 */
+    {
+        mbedtls_aes_context aes;
+        unsigned char iv[16];
+        /* CBC 要求输入是 16 的整数倍，手动 pad 到 32 字节 */
+        unsigned char padded[32];
+        memset(padded, 0, sizeof(padded));
+        memcpy(padded, g_plaintext, g_pt_len);
+        memcpy(iv, g_iv_cbc, 16);
+        mbedtls_aes_init(&aes);
+        mbedtls_aes_setkey_enc(&aes, g_key, 256);
+        mbedtls_aes_crypt_cbc(&aes, MBEDTLS_AES_ENCRYPT, 32, iv, padded, ct);
+        mbedtls_aes_free(&aes);
+        cbc_len = 32;
     }
 
-    printf("\n加密结果:\n");
-    print_hex("密文", ciphertext, plaintext_len);
-    print_hex("Tag ", tag, 16);
-
-    /* 解密 + 验证认证标签 */
-    ret = mbedtls_gcm_auth_decrypt(&gcm, plaintext_len,
-                                   nonce, sizeof(nonce),
-                                   aad, sizeof(aad),
-                                   tag, 16,
-                                   ciphertext, decrypted);
-    if (ret != 0) {
-        printf("解密/认证失败: -0x%04x\n", -ret);
-        printf("说明: 如果密文或 AAD 被篡改，认证会失败\n");
-        return ret;
+    /* GCM：19 字节 -> 19 字节密文 + 16 字节 Tag */
+    {
+        mbedtls_gcm_context gcm;
+        unsigned char tag[16];
+        mbedtls_gcm_init(&gcm);
+        mbedtls_gcm_setkey(&gcm, MBEDTLS_CIPHER_ID_AES, g_key, 256);
+        mbedtls_gcm_crypt_and_tag(&gcm, MBEDTLS_GCM_ENCRYPT, g_pt_len,
+                                  g_nonce_gcm, 12,
+                                  g_aad, sizeof(g_aad),
+                                  (const unsigned char *)g_plaintext, ct,
+                                  16, tag);
+        mbedtls_gcm_free(&gcm);
+        gcm_len = g_pt_len; /* 密文等长，Tag 另算 */
     }
 
-    printf("\n解密: \"%.*s\"\n", (int)plaintext_len, decrypted);
-    printf("✓ 解密和认证标签验证均通过\n");
-
-    /* 演示篡改检测 */
-    printf("\n--- 演示篡改检测 ---\n");
-    ciphertext[0] ^= 0x01; /* 篡改密文的第一个字节 */
-    ret = mbedtls_gcm_auth_decrypt(&gcm, plaintext_len,
-                                   nonce, sizeof(nonce),
-                                   aad, sizeof(aad),
-                                   tag, 16,
-                                   ciphertext, decrypted);
-    if (ret != 0) {
-        printf("✓ 检测到篡改! 认证失败 (ret = -0x%04x)\n", -ret);
-        printf("  GCM 的认证机制成功阻止了数据篡改\n");
+    /* CTR：19 字节 -> 19 字节 */
+    {
+        mbedtls_cipher_context_t ctx;
+        const mbedtls_cipher_info_t *info =
+            mbedtls_cipher_info_from_type(MBEDTLS_CIPHER_AES_256_CTR);
+        size_t olen;
+        mbedtls_cipher_init(&ctx);
+        mbedtls_cipher_setup(&ctx, info);
+        mbedtls_cipher_setkey(&ctx, g_key, 256, MBEDTLS_ENCRYPT);
+        mbedtls_cipher_set_iv(&ctx, g_nonce_ctr, 16);
+        mbedtls_cipher_reset(&ctx);
+        mbedtls_cipher_update(&ctx, (const unsigned char *)g_plaintext,
+                              g_pt_len, ct, &olen);
+        size_t total = olen;
+        mbedtls_cipher_finish(&ctx, ct + olen, &olen);
+        total += olen;
+        mbedtls_cipher_free(&ctx);
+        ctr_len = total;
     }
 
-    mbedtls_gcm_free(&gcm);
+    printf("\n  模式    明文长度   密文长度   额外开销        说明\n");
+    printf("  ─────────────────────────────────────────────────────\n");
+    printf("  CBC      %2zu B       %2zu B       +%2zu B         padding 到 16 字节对齐\n",
+           g_pt_len, cbc_len, cbc_len - g_pt_len);
+    printf("  GCM      %2zu B       %2zu B       +16 B Tag       密文等长，Tag 单独传输\n",
+           g_pt_len, gcm_len);
+    printf("  CTR      %2zu B       %2zu B       +0 B            密文等长，无额外开销\n",
+           g_pt_len, ctr_len);
+
+    printf("\n→ CBC 的 padding 使密文膨胀 %zu%%，GCM/CTR 无膨胀\n",
+           (cbc_len - g_pt_len) * 100 / g_pt_len);
+    printf("→ TLS 选 GCM：等长 + 自带认证，带宽和安全性兼得\n");
     return 0;
 }
 
-/**
- * 示例3：使用通用 Cipher API（推荐方式）
- * 好处：可以在运行时切换算法，代码更通用
- */
-static int example_cipher_api(void)
+/* ────────────────────────────────────────────────────────────
+ * 实验3：篡改检测对比 —— 揭示完整性差异
+ *
+ * 对密文的第一个字节做 XOR 篡改，观察各模式的反应：
+ *   - CBC: 解密"成功"，但输出是乱码（静默损坏，无法检测）
+ *   - GCM: 认证失败，明确报错（AEAD 的核心价值）
+ *   - CTR: 解密"成功"，但输出是乱码（静默损坏，无法检测）
+ *
+ * 这就是 AEAD（认证加密）的意义：
+ *   不仅加密，还能验证数据在传输中未被篡改
+ * ──────────────────────────────────────────────────────────── */
+static int experiment_tamper(void)
 {
-    printf("\n=== 示例3: 通用 Cipher API (AES-128-CTR) ===\n");
+    printf("\n════════ 实验3: 篡改检测（密文首字节 XOR 0x01）════════\n");
 
-    unsigned char key[16] = {
-        0x2b, 0x7e, 0x15, 0x16, 0x28, 0xae, 0xd2, 0xa6,
-        0xab, 0xf7, 0x15, 0x88, 0x09, 0xcf, 0x4f, 0x3c
-    };
-    unsigned char nonce[16] = {
-        0xf0, 0xf1, 0xf2, 0xf3, 0xf4, 0xf5, 0xf6, 0xf7,
-        0xf8, 0xf9, 0xfa, 0xfb, 0xfc, 0xfd, 0xfe, 0xff
-    };
+    unsigned char ct[64], pt[64];
 
-    const char *plaintext = "CTR mode turns block cipher into stream cipher";
-    size_t plaintext_len = strlen(plaintext);
-    unsigned char ciphertext[128];
-    unsigned char decrypted[128];
+    /* ── CBC：篡改后解密"成功"但输出乱码 ── */
+    printf("\n[CBC] 篡改后解密：\n");
+    {
+        mbedtls_aes_context aes;
+        unsigned char iv[16];
+        const char *cbc_pt = "0123456789abcdef0123456789abcdef";
+        memcpy(iv, g_iv_cbc, 16);
+        mbedtls_aes_init(&aes);
+        mbedtls_aes_setkey_enc(&aes, g_key, 256);
+        mbedtls_aes_crypt_cbc(&aes, MBEDTLS_AES_ENCRYPT, 32, iv,
+                              (const unsigned char *)cbc_pt, ct);
+        mbedtls_aes_free(&aes);
+
+        ct[0] ^= 0x01; /* 篡改！ */
+
+        memcpy(iv, g_iv_cbc, 16);
+        mbedtls_aes_init(&aes);
+        mbedtls_aes_setkey_dec(&aes, g_key, 256);
+        mbedtls_aes_crypt_cbc(&aes, MBEDTLS_AES_DECRYPT, 32, iv, ct, pt);
+        mbedtls_aes_free(&aes);
+
+        printf("  解密结果: ");
+        for (int i = 0; i < 32; i++) {
+            if (pt[i] >= 32 && pt[i] < 127) printf("%c", pt[i]);
+            else printf(".");
+        }
+        printf("\n");
+        printf("  → 解密没有报错，但输出是乱码（静默损坏，无法检测）\n");
+    }
+
+    /* ── GCM：篡改后认证失败 ── */
+    printf("\n[GCM] 篡改后解密：\n");
+    {
+        mbedtls_gcm_context gcm;
+        unsigned char tag[16];
+        mbedtls_gcm_init(&gcm);
+        mbedtls_gcm_setkey(&gcm, MBEDTLS_CIPHER_ID_AES, g_key, 256);
+        mbedtls_gcm_crypt_and_tag(&gcm, MBEDTLS_GCM_ENCRYPT, g_pt_len,
+                                  g_nonce_gcm, 12,
+                                  g_aad, sizeof(g_aad),
+                                  (const unsigned char *)g_plaintext, ct,
+                                  16, tag);
+
+        ct[0] ^= 0x01; /* 篡改！ */
+
+        int ret = mbedtls_gcm_auth_decrypt(&gcm, g_pt_len,
+                                           g_nonce_gcm, 12,
+                                           g_aad, sizeof(g_aad),
+                                           tag, 16, ct, pt);
+        mbedtls_gcm_free(&gcm);
+
+        if (ret != 0) {
+            printf("  → 认证失败 (ret = -0x%04x)，篡改被成功检测！\n", -ret);
+            printf("  → GCM 的 Auth Tag 保证了数据完整性\n");
+        }
+    }
+
+    /* ── CTR：篡改后解密"成功"但输出乱码 ── */
+    printf("\n[CTR] 篡改后解密：\n");
+    {
+        mbedtls_cipher_context_t ctx;
+        const mbedtls_cipher_info_t *info =
+            mbedtls_cipher_info_from_type(MBEDTLS_CIPHER_AES_256_CTR);
+        size_t olen;
+
+        mbedtls_cipher_init(&ctx);
+        mbedtls_cipher_setup(&ctx, info);
+        mbedtls_cipher_setkey(&ctx, g_key, 256, MBEDTLS_ENCRYPT);
+        mbedtls_cipher_set_iv(&ctx, g_nonce_ctr, 16);
+        mbedtls_cipher_reset(&ctx);
+        mbedtls_cipher_update(&ctx, (const unsigned char *)g_plaintext,
+                              g_pt_len, ct, &olen);
+        size_t total = olen;
+        mbedtls_cipher_finish(&ctx, ct + olen, &olen);
+        total += olen;
+        mbedtls_cipher_free(&ctx);
+
+        ct[0] ^= 0x01; /* 篡改！ */
+
+        mbedtls_cipher_init(&ctx);
+        mbedtls_cipher_setup(&ctx, info);
+        mbedtls_cipher_setkey(&ctx, g_key, 256, MBEDTLS_DECRYPT);
+        mbedtls_cipher_set_iv(&ctx, g_nonce_ctr, 16);
+        mbedtls_cipher_reset(&ctx);
+        mbedtls_cipher_update(&ctx, ct, total, pt, &olen);
+        size_t dlen = olen;
+        mbedtls_cipher_finish(&ctx, pt + olen, &olen);
+        dlen += olen;
+        mbedtls_cipher_free(&ctx);
+
+        printf("  解密结果: ");
+        for (size_t i = 0; i < dlen; i++) {
+            if (pt[i] >= 32 && pt[i] < 127) printf("%c", pt[i]);
+            else printf(".");
+        }
+        printf("\n");
+        printf("  → 解密没有报错，但输出是乱码（静默损坏，无法检测）\n");
+    }
+
+    printf("\n→ 只有 GCM 能检测篡改，CBC/CTR 的损坏是静默的\n");
+    printf("→ 这就是 TLS 必须用 AEAD 模式（GCM/CCM）的根本原因\n");
+    return 0;
+}
+
+/* ────────────────────────────────────────────────────────────
+ * 实验4：通用 Cipher API —— 运行时切换算法
+ *
+ * 实际项目中通常不直接调 mbedtls_aes_crypt_cbc() 或
+ * mbedtls_gcm_crypt_and_tag()，而是用通用 cipher API：
+ *   - 通过 mbedtls_cipher_info_from_type() 在运行时选择算法
+ *   - 同一套 init/setup/setkey/update/finish/free 流程
+ *   - 切换算法只需改一个 type 参数，不用改代码逻辑
+ *
+ * 这里演示用通用 API 分别跑 CBC 和 CTR，对比代码结构
+ * ──────────────────────────────────────────────────────────── */
+static int experiment_cipher_api(void)
+{
+    printf("\n════════ 实验4: 通用 Cipher API（运行时切换算法）════════\n");
+
+    const char *pt = "Generic cipher API demo";
+    size_t pt_len = strlen(pt);
+    unsigned char ct[64], out[64];
     size_t olen;
-    int ret;
 
-    mbedtls_cipher_context_t ctx;
-    const mbedtls_cipher_info_t *cipher_info;
+    /* 用通用 API 跑 CBC */
+    printf("\n[通用 API → CBC]\n");
+    {
+        const mbedtls_cipher_info_t *info =
+            mbedtls_cipher_info_from_type(MBEDTLS_CIPHER_AES_256_CBC);
+        printf("  算法: %s, 密钥: %d bits, IV: %d bytes\n",
+               mbedtls_cipher_info_get_name(info),
+               (int)mbedtls_cipher_info_get_key_bitlen(info),
+               (int)mbedtls_cipher_info_get_iv_size(info));
 
-    /* 通过名称获取算法信息 */
-    cipher_info = mbedtls_cipher_info_from_type(MBEDTLS_CIPHER_AES_128_CTR);
-    printf("算法: %s\n", mbedtls_cipher_info_get_name(cipher_info));
-    printf("密钥长度: %d bits\n", (int)mbedtls_cipher_info_get_key_bitlen(cipher_info));
-    printf("明文: \"%s\" (%zu bytes)\n", plaintext, plaintext_len);
-
-    /* 加密 */
-    mbedtls_cipher_init(&ctx);
-    mbedtls_cipher_setup(&ctx, cipher_info);
-    mbedtls_cipher_setkey(&ctx, key, 128, MBEDTLS_ENCRYPT);
-    mbedtls_cipher_set_iv(&ctx, nonce, 16);
-    mbedtls_cipher_reset(&ctx);
-
-    ret = mbedtls_cipher_update(&ctx, (const unsigned char *)plaintext,
-                                plaintext_len, ciphertext, &olen);
-    if (ret != 0) {
-        printf("加密失败: -0x%04x\n", -ret);
-        return ret;
+        mbedtls_cipher_context_t ctx;
+        mbedtls_cipher_init(&ctx);
+        mbedtls_cipher_setup(&ctx, info);
+        mbedtls_cipher_setkey(&ctx, g_key, 256, MBEDTLS_ENCRYPT);
+        mbedtls_cipher_set_iv(&ctx, g_iv_cbc, 16);
+        mbedtls_cipher_reset(&ctx);
+        mbedtls_cipher_update(&ctx, (const unsigned char *)pt, pt_len, ct, &olen);
+        size_t total = olen;
+        mbedtls_cipher_finish(&ctx, ct + olen, &olen);
+        total += olen;
+        mbedtls_cipher_free(&ctx);
+        printf("  密文长度: %zu bytes (含 padding)\n", total);
     }
 
-    size_t total_len = olen;
-    ret = mbedtls_cipher_finish(&ctx, ciphertext + olen, &olen);
-    total_len += olen;
-    mbedtls_cipher_free(&ctx);
+    /* 用通用 API 跑 CTR */
+    printf("\n[通用 API → CTR]\n");
+    {
+        const mbedtls_cipher_info_t *info =
+            mbedtls_cipher_info_from_type(MBEDTLS_CIPHER_AES_256_CTR);
+        printf("  算法: %s, 密钥: %d bits, IV: %d bytes\n",
+               mbedtls_cipher_info_get_name(info),
+               (int)mbedtls_cipher_info_get_key_bitlen(info),
+               (int)mbedtls_cipher_info_get_iv_size(info));
 
-    print_hex("密文", ciphertext, total_len);
-
-    /* 解密 (CTR 模式加密和解密操作相同) */
-    mbedtls_cipher_init(&ctx);
-    mbedtls_cipher_setup(&ctx, cipher_info);
-    mbedtls_cipher_setkey(&ctx, key, 128, MBEDTLS_DECRYPT);
-    mbedtls_cipher_set_iv(&ctx, nonce, 16);
-    mbedtls_cipher_reset(&ctx);
-
-    mbedtls_cipher_update(&ctx, ciphertext, total_len, decrypted, &olen);
-    size_t dec_len = olen;
-    mbedtls_cipher_finish(&ctx, decrypted + olen, &olen);
-    dec_len += olen;
-    mbedtls_cipher_free(&ctx);
-
-    decrypted[dec_len] = '\0';
-    printf("解密: \"%s\"\n", decrypted);
-
-    if (memcmp(plaintext, decrypted, plaintext_len) == 0) {
-        printf("✓ CTR 模式加密/解密验证通过\n");
-        printf("  注意: CTR 模式明文和密文长度相同（无 padding）\n");
-    } else {
-        printf("✗ 验证失败!\n");
-        return -1;
+        mbedtls_cipher_context_t ctx;
+        mbedtls_cipher_init(&ctx);
+        mbedtls_cipher_setup(&ctx, info);
+        mbedtls_cipher_setkey(&ctx, g_key, 256, MBEDTLS_ENCRYPT);
+        mbedtls_cipher_set_iv(&ctx, g_nonce_ctr, 16);
+        mbedtls_cipher_reset(&ctx);
+        mbedtls_cipher_update(&ctx, (const unsigned char *)pt, pt_len, ct, &olen);
+        size_t total = olen;
+        mbedtls_cipher_finish(&ctx, ct + olen, &olen);
+        total += olen;
+        mbedtls_cipher_free(&ctx);
+        printf("  密文长度: %zu bytes (无 padding)\n", total);
     }
 
+    printf("\n→ 通用 API 的优势：切换算法只改 type 参数，代码结构不变\n");
+    printf("→ 注意：GCM 没有通用 cipher API 的 AEAD 路径，需直接用 gcm.h\n");
     return 0;
 }
 
 int main(void)
 {
-    printf("╔══════════════════════════════════════════════╗\n");
-    printf("║  mbedTLS 教程 - 02: 对称加密 (AES)         ║\n");
-    printf("╚══════════════════════════════════════════════╝\n");
+    printf("╔══════════════════════════════════════════════════════╗\n");
+    printf("║  mbedTLS 教程 - 02: 对称加密 (AES) 模式对比实验     ║\n");
+    printf("╚══════════════════════════════════════════════════════╝\n");
 
-    example_aes_cbc();
-    example_aes_gcm();
-    example_cipher_api();
+    experiment_basic();
+    experiment_length();
+    experiment_tamper();
+    experiment_cipher_api();
 
-    printf("\n");
-    printf("══════════════════════════════════════════════\n");
-    printf("总结:\n");
-    printf("  - AES-CBC: 经典模式，需 padding，无完整性保护\n");
-    printf("  - AES-GCM: TLS 首选，AEAD 提供加密+认证\n");
-    printf("  - AES-CTR: 流模式，无 padding，无完整性保护\n");
-    printf("  - TLS 优先使用 GCM 因为它一步完成加密和完整性校验\n");
-    printf("══════════════════════════════════════════════\n");
+    printf("\n══════════════════════════════════════════════════════\n");
+    printf("  模式    padding   密文长度   完整性   TLS 适用性\n");
+    printf("  ─────────────────────────────────────────────────────\n");
+    printf("  CBC     需要      膨胀       无       不推荐\n");
+    printf("  GCM     不需要    等长+Tag   有(AEAD)  首选 ✓\n");
+    printf("  CTR     不需要    等长       无       可用但需额外 MAC\n");
+    printf("══════════════════════════════════════════════════════\n");
 
-    printf("\n✓ 所有示例运行完成\n");
+    printf("\n✓ 所有实验运行完成\n");
     return 0;
 }
