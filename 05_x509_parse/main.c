@@ -376,6 +376,19 @@ static int example_three_level_chain(mbedtls_x509_crt *root_ca,
         printf("  说明: 无法到达信任锚点，链不完整\n");
     }
 
+    /* 演示：以 Sub CA 为信任锚点（没有 Root CA 时的降级验证）
+     * 此时只验证 EE → Sub CA 两级，回调只调用 2 次：
+     *   depth=0 (EE), depth=1 (Sub CA 作为信任锚点)
+     * 安全含义：信任 Sub CA = 信任它能签发的所有证书 */
+    printf("\n--- 演示：以 Sub CA 为信任锚点（无 Root CA 时的降级验证）---\n");
+    ret = mbedtls_x509_crt_verify(ee_cert, sub_ca, NULL, NULL, &flags,
+                                  my_verify_callback, NULL);
+    if (ret == 0) {
+        printf("\n✓ 两级验证通过 (EE → Sub CA)\n");
+        printf("  回调只调用 2 次: depth=0(EE), depth=1(Sub CA)\n");
+        printf("  说明: trust_ca 可以是链中任何一级 CA，不一定是自签名 Root\n");
+    }
+
     return 0;
 }
 
@@ -450,7 +463,13 @@ int main(void)
     if (ret != 0) goto exit;
 
     /* 多次 parse 到同一个结构体，mbedTLS 自动追加到链尾（建立 next 链）
-     * 这是官方推荐方式，不需要手动拼接 PEM 或修改 next */
+     * 这是官方推荐方式，不需要手动拼接 PEM 或修改 next
+     *
+     * 注意：链顺序 = parse 顺序 = 验证顺序，必须从叶子到根：
+     *   EE → Sub CA → (Root CA 在 trust_ca 中，不放在链里)
+     * 如果顺序反了（Sub CA → EE），验证会失败，
+     * 因为 mbedTLS 严格沿 next 链逐级向上匹配 issuer。
+     * TLS 中服务器发送证书链也遵循此顺序 (RFC 5246)。 */
     ret = mbedtls_x509_crt_parse(&ee_cert, ee_pem, sizeof(ee_pem));
     if (ret != 0) { printf("解析 EE 证书失败: -0x%04x\n", -ret); goto exit; }
     ret = mbedtls_x509_crt_parse(&ee_cert, sub_pem, sizeof(sub_pem));

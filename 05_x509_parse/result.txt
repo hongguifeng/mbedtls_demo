@@ -82,6 +82,18 @@
   ! The certificate is not correctly signed by the trusted CA
   说明: 无法到达信任锚点，链不完整
 
+--- 演示：以 Sub CA 为信任锚点（无 Root CA 时的降级验证）---
+  [验证回调] 深度 1: CN=Demo Sub CA, O=mbedTLS Tutorial, C=CN
+  [验证回调] 标志: 0x0000
+  [验证回调] ✓ 无错误
+  [验证回调] 深度 0: CN=demo-server.local, O=mbedTLS Tutorial, C=CN
+  [验证回调] 标志: 0x0000
+  [验证回调] ✓ 无错误
+
+✓ 两级验证通过 (EE → Sub CA)
+  回调只调用 2 次: depth=0(EE), depth=1(Sub CA)
+  说明: trust_ca 可以是链中任何一级 CA，不一定是自签名 Root
+
 ══════════════════════════════════════════════
 总结:
   - mbedtls_x509_crt_parse(): 从 PEM/DER 加载证书
