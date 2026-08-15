@@ -72,25 +72,36 @@ static int generate_self_signed_cert(mbedtls_x509_crt *cert,
     unsigned char cert_buf[4096];
     int ret;
 
+    /* 初始化证书写入器和序列号 */
     mbedtls_x509write_crt_init(&write_cert);
     mbedtls_mpi_init(&serial);
 
-    /* 设置证书属性 */
+    /* 序列号 = 1（CA 必须为每张证书分配唯一值） */
     mbedtls_mpi_lset(&serial, 1);
     mbedtls_x509write_crt_set_serial(&write_cert, &serial);
+    /* 有效期：2024-01-01 ~ 2026-12-31 */
     mbedtls_x509write_crt_set_validity(&write_cert, "20240101000000", "20261231235959");
+    /* 颁发者 DN（自签名时 = subject） */
     mbedtls_x509write_crt_set_issuer_name(&write_cert, subject);
+    /* 主体 DN（证书持有者身份） */
     mbedtls_x509write_crt_set_subject_name(&write_cert, subject);
+    /* 主体公钥（证书中嵌入的公钥） */
     mbedtls_x509write_crt_set_subject_key(&write_cert, key);
+    /* 颁发者私钥（用于对证书签名） */
     mbedtls_x509write_crt_set_issuer_key(&write_cert, key);
+    /* 签名哈希算法：SHA-256 */
     mbedtls_x509write_crt_set_md_alg(&write_cert, MBEDTLS_MD_SHA256);
 
     if (is_ca) {
+        /* CA 证书：CA:TRUE, pathlen:-1(无限)，允许签发下级证书 */
         mbedtls_x509write_crt_set_basic_constraints(&write_cert, 1, -1);
+        /* 用途：签发证书 + 签发 CRL */
         mbedtls_x509write_crt_set_key_usage(&write_cert,
             MBEDTLS_X509_KU_KEY_CERT_SIGN | MBEDTLS_X509_KU_CRL_SIGN);
     } else {
+        /* EE 证书：CA:FALSE，不能签发其他证书 */
         mbedtls_x509write_crt_set_basic_constraints(&write_cert, 0, 0);
+        /* 用途：TLS 数字签名 + 密钥加密 */
         mbedtls_x509write_crt_set_key_usage(&write_cert,
             MBEDTLS_X509_KU_DIGITAL_SIGNATURE | MBEDTLS_X509_KU_KEY_ENCIPHERMENT);
     }
@@ -123,27 +134,47 @@ static int generate_signed_cert(mbedtls_x509_crt *cert,
                                 mbedtls_pk_context *issuer_key,
                                 const char *subject_name,
                                 const char *issuer_name,
-                                mbedtls_ctr_drbg_context *ctr_drbg)
+                                mbedtls_ctr_drbg_context *ctr_drbg,
+                                int is_ca)
 {
     mbedtls_x509write_cert write_cert;
     mbedtls_mpi serial;
     unsigned char cert_buf[4096];
     int ret;
 
+    /* 初始化证书写入器和序列号 */
     mbedtls_x509write_crt_init(&write_cert);
     mbedtls_mpi_init(&serial);
 
-    mbedtls_mpi_lset(&serial, 2);
+    /* 序列号（CA 必须为每张证书分配唯一值） */
+    mbedtls_mpi_lset(&serial, is_ca ? 2 : 3);
     mbedtls_x509write_crt_set_serial(&write_cert, &serial);
+    /* 有效期 */
     mbedtls_x509write_crt_set_validity(&write_cert, "20240101000000", "20261231235959");
+    /* 颁发者 = CA 的 DN */
     mbedtls_x509write_crt_set_issuer_name(&write_cert, issuer_name);
+    /* 主体 = EE/Sub CA 的 DN */
     mbedtls_x509write_crt_set_subject_name(&write_cert, subject_name);
+    /* 主体公钥 */
     mbedtls_x509write_crt_set_subject_key(&write_cert, subject_key);
+    /* 颁发者私钥 = CA 的私钥（签名用） */
     mbedtls_x509write_crt_set_issuer_key(&write_cert, issuer_key);
+    /* 签名哈希：SHA-256 */
     mbedtls_x509write_crt_set_md_alg(&write_cert, MBEDTLS_MD_SHA256);
-    mbedtls_x509write_crt_set_basic_constraints(&write_cert, 0, 0);
-    mbedtls_x509write_crt_set_key_usage(&write_cert,
-        MBEDTLS_X509_KU_DIGITAL_SIGNATURE);
+
+    if (is_ca) {
+        /* Sub CA：CA:TRUE，允许签发下级证书 */
+        mbedtls_x509write_crt_set_basic_constraints(&write_cert, 1, 0);
+        /* 用途：签发证书 + 签发 CRL */
+        mbedtls_x509write_crt_set_key_usage(&write_cert,
+            MBEDTLS_X509_KU_KEY_CERT_SIGN | MBEDTLS_X509_KU_CRL_SIGN);
+    } else {
+        /* EE：CA:FALSE，不能签发其他证书 */
+        mbedtls_x509write_crt_set_basic_constraints(&write_cert, 0, 0);
+        /* 用途：TLS 数字签名 */
+        mbedtls_x509write_crt_set_key_usage(&write_cert,
+            MBEDTLS_X509_KU_DIGITAL_SIGNATURE);
+    }
 
     ret = mbedtls_x509write_crt_pem(&write_cert, cert_buf, sizeof(cert_buf),
                                     mbedtls_ctr_drbg_random, ctr_drbg);
@@ -281,6 +312,10 @@ static int example_verify_callback(mbedtls_x509_crt *ca_cert,
     int simulate_no_rtc = 1; /* 模拟 RTC 未设置 */
 
     printf("使用自定义回调验证证书:\n");
+    /* 回调会被调用两次：
+     *   第 1 次 (depth=0): 验证 EE 证书本身（签名、有效期、Key Usage 等）
+     *   第 2 次 (depth=1): 验证 CA 证书（信任锚点，检查自签名是否有效）
+     * 即证书链中每张证书都会触发一次回调，从叶子到根依次验证 */
     int ret = mbedtls_x509_crt_verify(ee_cert, ca_cert, NULL, NULL, &flags,
                                       my_verify_callback, &simulate_no_rtc);
 
@@ -295,6 +330,62 @@ static int example_verify_callback(mbedtls_x509_crt *ca_cert,
     return 0;
 }
 
+/**
+ * 示例4：三级证书链验证 (Root CA → Sub CA → EE)
+ *
+ * 对应项目实际场景：
+ *   Root CA (自签名，预置在设备信任库)
+ *     └── Sub CA (由 Root CA 签名)
+ *          └── EE Cert (由 Sub CA 签名，服务器/客户端使用)
+ *
+ * 验证时 mbedtls_x509_crt_verify 的 ca_chain 参数传入 Sub CA，
+ * mbedTLS 自动沿链向上找到 Root CA（信任锚点）。
+ * 回调被调用 3 次：depth=0 (EE), depth=1 (Sub CA), depth=2 (Root CA)
+ */
+static int example_three_level_chain(mbedtls_x509_crt *root_ca,
+                                     mbedtls_x509_crt *sub_ca,
+                                     mbedtls_x509_crt *ee_cert)
+{
+    printf("\n=== 示例4: 三级证书链验证 (Root CA → Sub CA → EE) ===\n");
+    printf("对应项目: mbedtls_ssl_conf_ca_chain() 加载 Root CA\n");
+    printf("          服务器出示 EE 证书 + Sub CA 中间证书\n\n");
+
+    uint32_t flags;
+    char vrfy_buf[512];
+    int ret;
+
+    /* 验证：将 sub_ca 链接到 ee_cert 后面形成证书链
+     * ee_cert->next = sub_ca，mbedTLS 沿链向上验证直到 trust_ca (root_ca) */
+    ee_cert->next = sub_ca;
+    ret = mbedtls_x509_crt_verify(ee_cert, root_ca, NULL, NULL, &flags,
+                                  my_verify_callback, NULL);
+    ee_cert->next = NULL; /* 恢复链表 */
+
+    if (ret == 0) {
+        printf("\n✓ 三级证书链验证通过!\n");
+        printf("  验证路径: EE → Sub CA → Root CA (信任锚点)\n");
+        printf("  回调调用 3 次: depth=0(EE), depth=1(Sub CA), depth=2(Root CA)\n");
+    } else {
+        printf("证书验证结果: 0x%04x\n", flags);
+        mbedtls_x509_crt_verify_info(vrfy_buf, sizeof(vrfy_buf), "  ! ", flags);
+        printf("%s\n", vrfy_buf);
+    }
+
+    /* 演示：信任库中没有 Root CA → 验证失败 */
+    printf("\n--- 演示：信任库缺少 Root CA ---\n");
+    ee_cert->next = sub_ca;
+    ret = mbedtls_x509_crt_verify(ee_cert, NULL, NULL, NULL, &flags, NULL, NULL);
+    ee_cert->next = NULL;
+    if (ret != 0) {
+        printf("✓ 预期失败! 错误标志: 0x%04x\n", flags);
+        mbedtls_x509_crt_verify_info(vrfy_buf, sizeof(vrfy_buf), "  ! ", flags);
+        printf("%s", vrfy_buf);
+        printf("  说明: 无法到达信任锚点，链不完整\n");
+    }
+
+    return 0;
+}
+
 int main(void)
 {
     printf("╔══════════════════════════════════════════════╗\n");
@@ -303,8 +394,8 @@ int main(void)
 
     mbedtls_entropy_context entropy;
     mbedtls_ctr_drbg_context ctr_drbg;
-    mbedtls_pk_context ca_key, ee_key;
-    mbedtls_x509_crt ca_cert, ee_cert;
+    mbedtls_pk_context root_key, sub_key, ee_key;
+    mbedtls_x509_crt root_cert, sub_cert, ee_cert;
     int ret;
 
     const char *pers = "x509_demo";
@@ -313,49 +404,69 @@ int main(void)
     mbedtls_ctr_drbg_seed(&ctr_drbg, mbedtls_entropy_func, &entropy,
                           (const unsigned char *)pers, strlen(pers));
 
-    mbedtls_pk_init(&ca_key);
+    mbedtls_pk_init(&root_key);
+    mbedtls_pk_init(&sub_key);
     mbedtls_pk_init(&ee_key);
-    mbedtls_x509_crt_init(&ca_cert);
+    mbedtls_x509_crt_init(&root_cert);
+    mbedtls_x509_crt_init(&sub_cert);
     mbedtls_x509_crt_init(&ee_cert);
 
-    /* 生成 CA 密钥对 */
-    printf("\n生成 CA 密钥对 (RSA-2048)...\n");
-    mbedtls_pk_setup(&ca_key, mbedtls_pk_info_from_type(MBEDTLS_PK_RSA));
-    ret = mbedtls_rsa_gen_key(mbedtls_pk_rsa(ca_key), mbedtls_ctr_drbg_random,
+    /* 生成 Root CA 密钥对 (RSA-2048) */
+    printf("\n生成 Root CA 密钥对 (RSA-2048)...\n");
+    mbedtls_pk_setup(&root_key, mbedtls_pk_info_from_type(MBEDTLS_PK_RSA));
+    ret = mbedtls_rsa_gen_key(mbedtls_pk_rsa(root_key), mbedtls_ctr_drbg_random,
                               &ctr_drbg, 2048, 65537);
-    if (ret != 0) { printf("CA 密钥生成失败\n"); goto exit; }
+    if (ret != 0) { printf("Root CA 密钥生成失败\n"); goto exit; }
 
-    /* 生成 EE 密钥对 */
+    /* 生成 Sub CA 密钥对 (RSA-2048) */
+    printf("生成 Sub CA 密钥对 (RSA-2048)...\n");
+    mbedtls_pk_setup(&sub_key, mbedtls_pk_info_from_type(MBEDTLS_PK_RSA));
+    ret = mbedtls_rsa_gen_key(mbedtls_pk_rsa(sub_key), mbedtls_ctr_drbg_random,
+                              &ctr_drbg, 2048, 65537);
+    if (ret != 0) { printf("Sub CA 密钥生成失败\n"); goto exit; }
+
+    /* 生成 EE 密钥对 (ECC P-256) */
     printf("生成 EE 密钥对 (ECC P-256)...\n");
     mbedtls_pk_setup(&ee_key, mbedtls_pk_info_from_type(MBEDTLS_PK_ECKEY));
     ret = mbedtls_ecp_gen_key(MBEDTLS_ECP_DP_SECP256R1, mbedtls_pk_ec(ee_key),
                               mbedtls_ctr_drbg_random, &ctr_drbg);
     if (ret != 0) { printf("EE 密钥生成失败\n"); goto exit; }
 
-    /* 生成自签名 CA 证书 */
-    printf("生成自签名 CA 证书...\n");
-    ret = generate_self_signed_cert(&ca_cert, &ca_key, &ctr_drbg,
+    /* 生成自签名 Root CA 证书 */
+    printf("生成自签名 Root CA 证书...\n");
+    ret = generate_self_signed_cert(&root_cert, &root_key, &ctr_drbg,
                                     "CN=Demo Root CA,O=mbedTLS Tutorial,C=CN", 1);
     if (ret != 0) goto exit;
 
-    /* 生成 CA 签名的 EE 证书 */
-    printf("生成 EE 证书（由 CA 签名）...\n");
-    ret = generate_signed_cert(&ee_cert, &ee_key, &ca_key,
-                               "CN=demo-server.local,O=mbedTLS Tutorial,C=CN",
+    /* 生成 Root CA 签名的 Sub CA 证书 */
+    printf("生成 Sub CA 证书（由 Root CA 签名）...\n");
+    ret = generate_signed_cert(&sub_cert, &sub_key, &root_key,
+                               "CN=Demo Sub CA,O=mbedTLS Tutorial,C=CN",
                                "CN=Demo Root CA,O=mbedTLS Tutorial,C=CN",
-                               &ctr_drbg);
+                               &ctr_drbg, 1);
+    if (ret != 0) goto exit;
+
+    /* 生成 Sub CA 签名的 EE 证书 */
+    printf("生成 EE 证书（由 Sub CA 签名）...\n");
+    ret = generate_signed_cert(&ee_cert, &ee_key, &sub_key,
+                               "CN=demo-server.local,O=mbedTLS Tutorial,C=CN",
+                               "CN=Demo Sub CA,O=mbedTLS Tutorial,C=CN",
+                               &ctr_drbg, 0);
     if (ret != 0) goto exit;
 
     /* 运行示例 */
-    example_cert_info(&ca_cert);
-    example_cert_chain_verify(&ca_cert, &ee_cert);
-    example_verify_callback(&ca_cert, &ee_cert);
+    example_cert_info(&root_cert);
+    example_cert_chain_verify(&root_cert, &sub_cert);
+    example_verify_callback(&root_cert, &sub_cert);
+    example_three_level_chain(&root_cert, &sub_cert, &ee_cert);
 
 exit:
     mbedtls_x509_crt_free(&ee_cert);
-    mbedtls_x509_crt_free(&ca_cert);
+    mbedtls_x509_crt_free(&sub_cert);
+    mbedtls_x509_crt_free(&root_cert);
     mbedtls_pk_free(&ee_key);
-    mbedtls_pk_free(&ca_key);
+    mbedtls_pk_free(&sub_key);
+    mbedtls_pk_free(&root_key);
     mbedtls_ctr_drbg_free(&ctr_drbg);
     mbedtls_entropy_free(&entropy);
 

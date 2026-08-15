@@ -2,10 +2,12 @@
 ║  mbedTLS 教程 - 05: X.509 证书解析与验证   ║
 ╚══════════════════════════════════════════════╝
 
-生成 CA 密钥对 (RSA-2048)...
+生成 Root CA 密钥对 (RSA-2048)...
+生成 Sub CA 密钥对 (RSA-2048)...
 生成 EE 密钥对 (ECC P-256)...
-生成自签名 CA 证书...
-生成 EE 证书（由 CA 签名）...
+生成自签名 Root CA 证书...
+生成 Sub CA 证书（由 Root CA 签名）...
+生成 EE 证书（由 Sub CA 签名）...
 
 === 示例1: 证书信息提取 ===
 证书详细信息:
@@ -47,7 +49,7 @@
   [验证回调] 深度 1: CN=Demo Root CA, O=mbedTLS Tutorial, C=CN
   [验证回调] 标志: 0x0000
   [验证回调] ✓ 无错误
-  [验证回调] 深度 0: CN=demo-server.local, O=mbedTLS Tutorial, C=CN
+  [验证回调] 深度 0: CN=Demo Sub CA, O=mbedTLS Tutorial, C=CN
   [验证回调] 标志: 0x0000
   [验证回调] ✓ 无错误
 
@@ -56,6 +58,29 @@
   // my_verify 中: if(tt==0) *flags &= ~EXPIRED & ~FUTURE
 
 ✓ 验证通过（可能忽略了时间相关错误）
+
+=== 示例4: 三级证书链验证 (Root CA → Sub CA → EE) ===
+对应项目: mbedtls_ssl_conf_ca_chain() 加载 Root CA
+          服务器出示 EE 证书 + Sub CA 中间证书
+
+  [验证回调] 深度 2: CN=Demo Root CA, O=mbedTLS Tutorial, C=CN
+  [验证回调] 标志: 0x0000
+  [验证回调] ✓ 无错误
+  [验证回调] 深度 1: CN=Demo Sub CA, O=mbedTLS Tutorial, C=CN
+  [验证回调] 标志: 0x0000
+  [验证回调] ✓ 无错误
+  [验证回调] 深度 0: CN=demo-server.local, O=mbedTLS Tutorial, C=CN
+  [验证回调] 标志: 0x0000
+  [验证回调] ✓ 无错误
+
+✓ 三级证书链验证通过!
+  验证路径: EE → Sub CA → Root CA (信任锚点)
+  回调调用 3 次: depth=0(EE), depth=1(Sub CA), depth=2(Root CA)
+
+--- 演示：信任库缺少 Root CA ---
+✓ 预期失败! 错误标志: 0x0008
+  ! The certificate is not correctly signed by the trusted CA
+  说明: 无法到达信任锚点，链不完整
 
 ══════════════════════════════════════════════
 总结:
