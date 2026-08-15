@@ -41,6 +41,7 @@
 #include <stdio.h>
 #include <string.h>
 #include "mbedtls/x509_crt.h"
+#include "mbedtls/x509_crl.h"
 #include "mbedtls/pk.h"
 #include "mbedtls/entropy.h"
 #include "mbedtls/ctr_drbg.h"
@@ -380,6 +381,7 @@ static int example_three_level_chain(mbedtls_x509_crt *root_ca,
      * 此时只验证 EE → Sub CA 两级，回调只调用 2 次：
      *   depth=0 (EE), depth=1 (Sub CA 作为信任锚点)
      * 安全含义：信任 Sub CA = 信任它能签发的所有证书 */
+    ee_cert->next = NULL; /* 断开链，避免自动向上验证到 Root CA */
     printf("\n--- 演示：以 Sub CA 为信任锚点（无 Root CA 时的降级验证）---\n");
     ret = mbedtls_x509_crt_verify(ee_cert, sub_ca, NULL, NULL, &flags,
                                   my_verify_callback, NULL);
@@ -389,6 +391,161 @@ static int example_three_level_chain(mbedtls_x509_crt *root_ca,
         printf("  说明: trust_ca 可以是链中任何一级 CA，不一定是自签名 Root\n");
     }
 
+    return 0;
+}
+
+/**
+ * 示例5：CRL 证书吊销检查
+ *
+ * CRL (Certificate Revocation List) 是 CA 发布的吊销证书列表。
+ * 当证书私钥泄露或证书需要提前作废时，CA 将证书序列号加入 CRL。
+ *
+ * 验证流程中 CRL 的作用：
+ *   mbedtls_x509_crt_verify(crt, trust_ca, ca_crl, ...)
+ *                                    ^^^^^^^ 第三个参数
+ *   对链中每张证书，mbedTLS 会：
+ *   1. 找到由该证书颁发者 (issuer) 签发的 CRL
+ *   2. 验证 CRL 签名（CRL 必须由对应 CA 签名）
+ *   3. 检查 CRL 有效期
+ *   4. 在 CRL 中查找该证书的序列号
+ *   5. 如果找到 → 设置 MBEDTLS_X509_BADCERT_REVOKED 标志
+ *
+ * 注意：mbedTLS 只提供 CRL 解析和验证，不提供 CRL 生成。
+ * 实际部署中 CRL 由 CA 系统（如 OpenSSL ca 命令）生成。
+ *
+ * 本示例使用 mbedTLS 测试数据：
+ *   - CA: PolarSSL Test CA (test-ca-sha256.crt, serial=03)
+ *   - CRL: 吊销了 serial=01 和 serial=03
+ *   - 被吊销证书: server1.crt (serial=01)
+ *   - 未吊销证书: server2-sha256.crt (serial=02)
+ */
+static int example_crl_check(void)
+{
+    printf("\n=== 示例5: CRL 证书吊销检查 ===\n");
+    printf("对应项目: mbedtls_x509_crt_verify() 第三个参数 ca_crl\n\n");
+
+    /* mbedTLS 测试数据路径（构建时通过 CMake 传入） */
+    const char *ca_file    = MBEDTLS_TEST_DATA_DIR "/test-ca-sha256.crt";
+    const char *crl_file   = MBEDTLS_TEST_DATA_DIR "/crl.pem";
+    const char *revoked_file  = MBEDTLS_TEST_DATA_DIR "/server1.crt";
+    const char *valid_file    = MBEDTLS_TEST_DATA_DIR "/server2-sha256.crt";
+
+    mbedtls_x509_crt ca_cert, revoked_cert, valid_cert;
+    mbedtls_x509_crl crl;
+    uint32_t flags;
+    char vrfy_buf[512];
+    int ret;
+
+    mbedtls_x509_crt_init(&ca_cert);
+    mbedtls_x509_crt_init(&revoked_cert);
+    mbedtls_x509_crt_init(&valid_cert);
+    mbedtls_x509_crl_init(&crl);
+
+    /* 1. 加载 CA 证书（CRL 的签名者） */
+    ret = mbedtls_x509_crt_parse_file(&ca_cert, ca_file);
+    if (ret != 0) {
+        printf("加载 CA 证书失败: -0x%04x\n", -ret);
+        goto exit;
+    }
+    printf("CA 证书: %s\n", ca_file);
+
+    /* 2. 加载 CRL（PEM 格式，可包含多个 CRL）
+     * mbedtls_x509_crl_parse 支持 PEM 和 DER
+     * 多个 CRL 通过 next 链连接（与证书链类似） */
+    ret = mbedtls_x509_crl_parse_file(&crl, crl_file);
+    if (ret != 0) {
+        printf("加载 CRL 失败: -0x%04x\n", -ret);
+        goto exit;
+    }
+    printf("CRL 文件: %s\n", crl_file);
+
+    /* 打印 CRL 信息 */
+    char crl_info[512];
+    mbedtls_x509_crl_info(crl_info, sizeof(crl_info), "  ", &crl);
+    printf("CRL 详情:\n%s\n", crl_info);
+
+    /* 打印吊销条目 */
+    printf("  吊销条目:\n");
+    const mbedtls_x509_crl_entry *entry = &crl.entry;
+    while (entry != NULL && entry->serial.len != 0) {
+        printf("    序列号: ");
+        for (size_t i = 0; i < entry->serial.len; i++) {
+            printf("%02x", entry->serial.p[i]);
+        }
+        printf("  吊销日期: %04d-%02d-%02d\n",
+               entry->revocation_date.year,
+               entry->revocation_date.mon,
+               entry->revocation_date.day);
+        entry = entry->next;
+    }
+
+    /* 3. 验证被吊销的证书 (server1, serial=01) */
+    printf("\n--- 验证被吊销证书 (server1, serial=01) ---\n");
+    ret = mbedtls_x509_crt_parse_file(&revoked_cert, revoked_file);
+    if (ret != 0) {
+        printf("加载证书失败: -0x%04x\n", -ret);
+        goto exit;
+    }
+
+    ret = mbedtls_x509_crt_verify(&revoked_cert, &ca_cert, &crl, NULL,
+                                  &flags, NULL, NULL);
+    if (flags & MBEDTLS_X509_BADCERT_REVOKED) {
+        printf("✓ 检测到证书已被吊销!\n");
+        printf("  错误标志: 0x%04x\n", flags);
+        mbedtls_x509_crt_verify_info(vrfy_buf, sizeof(vrfy_buf), "  ! ", flags);
+        printf("%s", vrfy_buf);
+        printf("  说明: server1 的序列号 (01) 在 CRL 中，证书已作废\n");
+        printf("  (测试 CRL 使用 SHA-1 签名，额外触发了哈希算法警告)\n");
+    } else {
+        printf("✗ 未检测到吊销（不应该发生）\n");
+    }
+
+    /* 4. 验证未吊销的证书 (server2, serial=02) */
+    printf("\n--- 验证未吊销证书 (server2, serial=02) ---\n");
+    ret = mbedtls_x509_crt_parse_file(&valid_cert, valid_file);
+    if (ret != 0) {
+        printf("加载证书失败: -0x%04x\n", -ret);
+        goto exit;
+    }
+
+    ret = mbedtls_x509_crt_verify(&valid_cert, &ca_cert, &crl, NULL,
+                                  &flags, NULL, NULL);
+    if (!(flags & MBEDTLS_X509_BADCERT_REVOKED)) {
+        printf("✓ 证书未被吊销\n");
+        printf("  错误标志: 0x%04x (无 REVOKED 标志)\n", flags);
+        printf("  说明: server2 的序列号 (02) 不在 CRL 中\n");
+        if (flags != 0) {
+            printf("  (测试 CRL 使用 SHA-1 签名，触发了哈希算法警告，与吊销无关)\n");
+        }
+    } else {
+        printf("✗ 证书被吊销（不应该发生）\n");
+        mbedtls_x509_crt_verify_info(vrfy_buf, sizeof(vrfy_buf), "  ! ", flags);
+        printf("%s", vrfy_buf);
+    }
+
+    /* 5. 演示：不传 CRL 时不会检查吊销 */
+    printf("\n--- 演示：不传 CRL（ca_crl=NULL）---\n");
+    ret = mbedtls_x509_crt_verify(&revoked_cert, &ca_cert, NULL, NULL,
+                                  &flags, NULL, NULL);
+    if (!(flags & MBEDTLS_X509_BADCERT_REVOKED)) {
+        printf("✓ 验证通过（未检查吊销）\n");
+        printf("  错误标志: 0x%04x (无 REVOKED 标志)\n", flags);
+        printf("  说明: ca_crl=NULL 时跳过 CRL 检查，被吊销证书也能通过\n");
+        printf("  安全含义: 生产环境必须配置 CRL 或 OCSP 才能检测吊销\n");
+    }
+
+    /* 6. 手动检查吊销（不经过完整验证流程） */
+    printf("\n--- 手动检查: mbedtls_x509_crt_is_revoked() ---\n");
+    int is_revoked = mbedtls_x509_crt_is_revoked(&revoked_cert, &crl);
+    printf("  server1 (serial=01): %s\n", is_revoked ? "已吊销" : "未吊销");
+    is_revoked = mbedtls_x509_crt_is_revoked(&valid_cert, &crl);
+    printf("  server2 (serial=02): %s\n", is_revoked ? "已吊销" : "未吊销");
+
+exit:
+    mbedtls_x509_crt_free(&ca_cert);
+    mbedtls_x509_crt_free(&revoked_cert);
+    mbedtls_x509_crt_free(&valid_cert);
+    mbedtls_x509_crl_free(&crl);
     return 0;
 }
 
@@ -482,6 +639,7 @@ int main(void)
     example_cert_chain_verify(&root_cert, &sub_cert);
     example_verify_callback(&root_cert, &sub_cert);
     example_three_level_chain(&root_cert, &sub_cert, &ee_cert);
+    example_crl_check();
 
 exit:
     /* ee_cert 是链头，free 会自动释放整条链（包括 sub_cert） */
@@ -497,7 +655,9 @@ exit:
     printf("══════════════════════════════════════════════\n");
     printf("总结:\n");
     printf("  - mbedtls_x509_crt_parse(): 从 PEM/DER 加载证书\n");
-    printf("  - mbedtls_x509_crt_verify(): 验证证书链\n");
+    printf("  - mbedtls_x509_crt_verify(): 验证证书链 (含 CRL 吊销检查)\n");
+    printf("  - mbedtls_x509_crl_parse(): 加载 CRL 吊销列表\n");
+    printf("  - mbedtls_x509_crt_is_revoked(): 手动检查证书是否被吊销\n");
     printf("  - 验证回调: 可自定义忽略/处理特定错误\n");
     printf("  - 项目模式: CA → SubCA → EE 三级证书链\n");
     printf("  - mbedtls_ssl_conf_ca_chain(): 配置信任锚点\n");

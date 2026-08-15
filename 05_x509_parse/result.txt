@@ -94,10 +94,56 @@
   回调只调用 2 次: depth=0(EE), depth=1(Sub CA)
   说明: trust_ca 可以是链中任何一级 CA，不一定是自签名 Root
 
+=== 示例5: CRL 证书吊销检查 ===
+对应项目: mbedtls_x509_crt_verify() 第三个参数 ca_crl
+
+CA 证书: /home/hong/testcode/mbedtls_demo/build/_deps/mbedtls-src/tests/data_files/test-ca-sha256.crt
+CRL 文件: /home/hong/testcode/mbedtls_demo/build/_deps/mbedtls-src/tests/data_files/crl.pem
+CRL 详情:
+  CRL version   : 1
+  issuer name   : C=NL, O=PolarSSL, CN=PolarSSL Test CA
+  this update   : 2023-05-17 07:14:38
+  next update   : 2033-05-17 07:14:38
+  Revoked certificates:
+  serial number: 01 revocation date: 2023-05-17 07:14:38
+  serial number: 03 revocation date: 2023-05-17 07:14:38
+  signed using  : RSA with SHA1
+
+  吊销条目:
+    序列号: 01  吊销日期: 2023-05-17
+    序列号: 03  吊销日期: 2023-05-17
+
+--- 验证被吊销证书 (server1, serial=01) ---
+✓ 检测到证书已被吊销!
+  错误标志: 0x24002
+  ! The certificate has been revoked (is on a CRL)
+  ! The certificate is signed with an unacceptable hash.
+  ! The CRL is signed with an unacceptable hash.
+  说明: server1 的序列号 (01) 在 CRL 中，证书已作废
+  (测试 CRL 使用 SHA-1 签名，额外触发了哈希算法警告)
+
+--- 验证未吊销证书 (server2, serial=02) ---
+✓ 证书未被吊销
+  错误标志: 0x20000 (无 REVOKED 标志)
+  说明: server2 的序列号 (02) 不在 CRL 中
+  (测试 CRL 使用 SHA-1 签名，触发了哈希算法警告，与吊销无关)
+
+--- 演示：不传 CRL（ca_crl=NULL）---
+✓ 验证通过（未检查吊销）
+  错误标志: 0x4000 (无 REVOKED 标志)
+  说明: ca_crl=NULL 时跳过 CRL 检查，被吊销证书也能通过
+  安全含义: 生产环境必须配置 CRL 或 OCSP 才能检测吊销
+
+--- 手动检查: mbedtls_x509_crt_is_revoked() ---
+  server1 (serial=01): 已吊销
+  server2 (serial=02): 未吊销
+
 ══════════════════════════════════════════════
 总结:
   - mbedtls_x509_crt_parse(): 从 PEM/DER 加载证书
-  - mbedtls_x509_crt_verify(): 验证证书链
+  - mbedtls_x509_crt_verify(): 验证证书链 (含 CRL 吊销检查)
+  - mbedtls_x509_crl_parse(): 加载 CRL 吊销列表
+  - mbedtls_x509_crt_is_revoked(): 手动检查证书是否被吊销
   - 验证回调: 可自定义忽略/处理特定错误
   - 项目模式: CA → SubCA → EE 三级证书链
   - mbedtls_ssl_conf_ca_chain(): 配置信任锚点
