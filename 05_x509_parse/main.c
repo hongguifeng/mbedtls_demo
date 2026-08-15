@@ -127,19 +127,19 @@ exit:
 }
 
 /**
- * 辅助：生成由 CA 签名的 EE 证书
+ * 辅助：生成由 CA 签名的证书（Sub CA 或 EE）
+ * 返回 PEM 格式证书文本（调用者负责 free）
  */
-static int generate_signed_cert(mbedtls_x509_crt *cert,
-                                mbedtls_pk_context *subject_key,
-                                mbedtls_pk_context *issuer_key,
-                                const char *subject_name,
-                                const char *issuer_name,
-                                mbedtls_ctr_drbg_context *ctr_drbg,
-                                int is_ca)
+static int generate_signed_cert_pem(unsigned char *buf, size_t buf_size,
+                                    mbedtls_pk_context *subject_key,
+                                    mbedtls_pk_context *issuer_key,
+                                    const char *subject_name,
+                                    const char *issuer_name,
+                                    mbedtls_ctr_drbg_context *ctr_drbg,
+                                    int is_ca)
 {
     mbedtls_x509write_cert write_cert;
     mbedtls_mpi serial;
-    unsigned char cert_buf[4096];
     int ret;
 
     /* 初始化证书写入器和序列号 */
@@ -176,11 +176,8 @@ static int generate_signed_cert(mbedtls_x509_crt *cert,
             MBEDTLS_X509_KU_DIGITAL_SIGNATURE);
     }
 
-    ret = mbedtls_x509write_crt_pem(&write_cert, cert_buf, sizeof(cert_buf),
+    ret = mbedtls_x509write_crt_pem(&write_cert, buf, buf_size,
                                     mbedtls_ctr_drbg_random, ctr_drbg);
-    if (ret != 0) goto exit;
-
-    ret = mbedtls_x509_crt_parse(cert, cert_buf, strlen((char *)cert_buf) + 1);
 
 exit:
     mbedtls_x509write_crt_free(&write_cert);
@@ -354,12 +351,10 @@ static int example_three_level_chain(mbedtls_x509_crt *root_ca,
     char vrfy_buf[512];
     int ret;
 
-    /* 验证：将 sub_ca 链接到 ee_cert 后面形成证书链
-     * ee_cert->next = sub_ca，mbedTLS 沿链向上验证直到 trust_ca (root_ca) */
-    ee_cert->next = sub_ca;
+    /* 验证：ee_cert 已经是链头（next 指向 sub_ca，由 parse 自动建立）
+     * mbedTLS 沿链向上验证直到 trust_ca (root_ca) */
     ret = mbedtls_x509_crt_verify(ee_cert, root_ca, NULL, NULL, &flags,
                                   my_verify_callback, NULL);
-    ee_cert->next = NULL; /* 恢复链表 */
 
     if (ret == 0) {
         printf("\n✓ 三级证书链验证通过!\n");
@@ -373,9 +368,7 @@ static int example_three_level_chain(mbedtls_x509_crt *root_ca,
 
     /* 演示：信任库中没有 Root CA → 验证失败 */
     printf("\n--- 演示：信任库缺少 Root CA ---\n");
-    ee_cert->next = sub_ca;
     ret = mbedtls_x509_crt_verify(ee_cert, NULL, NULL, NULL, &flags, NULL, NULL);
-    ee_cert->next = NULL;
     if (ret != 0) {
         printf("✓ 预期失败! 错误标志: 0x%04x\n", flags);
         mbedtls_x509_crt_verify_info(vrfy_buf, sizeof(vrfy_buf), "  ! ", flags);
@@ -438,21 +431,35 @@ int main(void)
                                     "CN=Demo Root CA,O=mbedTLS Tutorial,C=CN", 1);
     if (ret != 0) goto exit;
 
-    /* 生成 Root CA 签名的 Sub CA 证书 */
+    /* 生成 Root CA 签名的 Sub CA 证书 (PEM) */
     printf("生成 Sub CA 证书（由 Root CA 签名）...\n");
-    ret = generate_signed_cert(&sub_cert, &sub_key, &root_key,
-                               "CN=Demo Sub CA,O=mbedTLS Tutorial,C=CN",
-                               "CN=Demo Root CA,O=mbedTLS Tutorial,C=CN",
-                               &ctr_drbg, 1);
+    unsigned char sub_pem[4096];
+    ret = generate_signed_cert_pem(sub_pem, sizeof(sub_pem), &sub_key, &root_key,
+                                   "CN=Demo Sub CA,O=mbedTLS Tutorial,C=CN",
+                                   "CN=Demo Root CA,O=mbedTLS Tutorial,C=CN",
+                                   &ctr_drbg, 1);
     if (ret != 0) goto exit;
 
-    /* 生成 Sub CA 签名的 EE 证书 */
+    /* 生成 Sub CA 签名的 EE 证书 (PEM) */
     printf("生成 EE 证书（由 Sub CA 签名）...\n");
-    ret = generate_signed_cert(&ee_cert, &ee_key, &sub_key,
-                               "CN=demo-server.local,O=mbedTLS Tutorial,C=CN",
-                               "CN=Demo Sub CA,O=mbedTLS Tutorial,C=CN",
-                               &ctr_drbg, 0);
+    unsigned char ee_pem[4096];
+    ret = generate_signed_cert_pem(ee_pem, sizeof(ee_pem), &ee_key, &sub_key,
+                                   "CN=demo-server.local,O=mbedTLS Tutorial,C=CN",
+                                   "CN=Demo Sub CA,O=mbedTLS Tutorial,C=CN",
+                                   &ctr_drbg, 0);
     if (ret != 0) goto exit;
+
+    /* 将 EE + Sub CA 的 PEM 拼接后一次性解析，
+     * mbedtls_x509_crt_parse 会自动建立 next 链（正确方式，不直接修改 next） */
+    unsigned char chain_pem[8192];
+    size_t sub_len = strlen((char *)sub_pem);
+    size_t ee_len = strlen((char *)ee_pem);
+    memcpy(chain_pem, ee_pem, ee_len);
+    memcpy(chain_pem + ee_len, sub_pem, sub_len + 1);
+    ret = mbedtls_x509_crt_parse(&ee_cert, chain_pem, sizeof(chain_pem));
+    if (ret != 0) { printf("解析证书链失败: -0x%04x\n", -ret); goto exit; }
+    /* ee_cert 现在是链头，ee_cert->next 指向 sub_cert（由 parse 自动建立） */
+    sub_cert = *ee_cert.next;
 
     /* 运行示例 */
     example_cert_info(&root_cert);
@@ -461,8 +468,8 @@ int main(void)
     example_three_level_chain(&root_cert, &sub_cert, &ee_cert);
 
 exit:
+    /* ee_cert 是链头，free 会自动释放整条链（包括 sub_cert） */
     mbedtls_x509_crt_free(&ee_cert);
-    mbedtls_x509_crt_free(&sub_cert);
     mbedtls_x509_crt_free(&root_cert);
     mbedtls_pk_free(&ee_key);
     mbedtls_pk_free(&sub_key);
