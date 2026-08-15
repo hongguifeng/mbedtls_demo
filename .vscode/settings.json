@@ -1,6 +1,7 @@
 {
     "C_Cpp.default.configurationProvider": "ms-vscode.cmake-tools",
-    "C_Cpp.default.compileCommands": "${workspaceFolder}/build/compile_commands.json",
+    "C_Cpp.default.compileCommands": "${workspaceFolder}/mbedtls_36/build/compile_commands.json",
     "cmake.buildBeforeRun": true,
-    "cmake.buildDirectory": "${workspaceFolder}/build"
+    "cmake.sourceDirectory": "${workspaceFolder}/mbedtls_36",
+    "cmake.buildDirectory": "${workspaceFolder}/mbedtls_36/build"
 }
