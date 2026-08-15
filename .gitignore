@@ -1,9 +1,4 @@
-# Ignore build outputs but keep mbedtls source
-build/*
-!build/_deps/
-build/_deps/mbedtls-build/
-build/_deps/mbedtls-subbuild/
-!build/_deps/mbedtls-src/
+build/
 .cache/
 *.o
 *.obj
