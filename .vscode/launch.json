@@ -46,6 +46,16 @@
                 "14_psa_kdf",
                 "15_psa_key_mgmt"
             ]
+        },
+        {
+            "id": "subProject",
+            "type": "pickString",
+            "description": "选择示例所属子项目 (01-08: mbedtls_36, 09-15: mbedtls_42)",
+            "default": "mbedtls_36",
+            "options": [
+                "mbedtls_36",
+                "mbedtls_42"
+            ]
         }
     ]
 }
