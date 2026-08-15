@@ -475,9 +475,63 @@ static int experiment_cipher_api(void)
         printf("  解密: \"%.*s\"\n", (int)olen, out);
     }
 
+    /* 用通用 API 跑 GCM（流式接口） */
+    printf("\n[通用 API → GCM (流式接口)]\n");
+    printf("  调用序列: set_iv → reset → update_ad → update → finish → write_tag/check_tag\n");
+    {
+        const mbedtls_cipher_info_t *info =
+            mbedtls_cipher_info_from_type(MBEDTLS_CIPHER_AES_256_GCM);
+
+        mbedtls_cipher_context_t ctx;
+        mbedtls_cipher_init(&ctx);
+        mbedtls_cipher_setup(&ctx, info);
+        mbedtls_cipher_setkey(&ctx, g_key, 256, MBEDTLS_ENCRYPT);
+
+        /* 1. 设置 nonce */
+        mbedtls_cipher_set_iv(&ctx, g_nonce_gcm, 12);
+        /* 2. 重置状态 */
+        mbedtls_cipher_reset(&ctx);
+        /* 3. 喂入 AAD（只认证不加密） */
+        mbedtls_cipher_update_ad(&ctx, g_aad, sizeof(g_aad));
+        /* 4. 喂入明文（可分多次） */
+        size_t ct_len = 0;
+        mbedtls_cipher_update(&ctx, (const unsigned char *)pt, pt_len, ct, &ct_len);
+        /* 5. 完成加密（GCM 无 padding，finish 不产生额外输出） */
+        mbedtls_cipher_finish(&ctx, ct + ct_len, &olen);
+        ct_len += olen;
+        /* 6. 取出 Tag */
+        unsigned char tag[16];
+        mbedtls_cipher_write_tag(&ctx, tag, 16);
+        mbedtls_cipher_free(&ctx);
+
+        printf("  密文: %zu bytes, Tag: 16 bytes\n", ct_len);
+        print_hex("  密文", ct, ct_len);
+        print_hex("  Tag ", tag, 16);
+
+        /* 解密：同样的流式序列，最后用 check_tag 验证 */
+        mbedtls_cipher_init(&ctx);
+        mbedtls_cipher_setup(&ctx, info);
+        mbedtls_cipher_setkey(&ctx, g_key, 256, MBEDTLS_DECRYPT);
+        mbedtls_cipher_set_iv(&ctx, g_nonce_gcm, 12);
+        mbedtls_cipher_reset(&ctx);
+        mbedtls_cipher_update_ad(&ctx, g_aad, sizeof(g_aad));
+        size_t pt_len_out = 0;
+        mbedtls_cipher_update(&ctx, ct, ct_len, out, &pt_len_out);
+        mbedtls_cipher_finish(&ctx, out + pt_len_out, &olen);
+        pt_len_out += olen;
+        int ret = mbedtls_cipher_check_tag(&ctx, tag, 16);
+        mbedtls_cipher_free(&ctx);
+
+        if (ret != 0) {
+            printf("  Tag 验证失败: -0x%04x\n", -ret);
+            return ret;
+        }
+        printf("  解密: \"%.*s\" (Tag 验证通过)\n", (int)pt_len_out, out);
+    }
+
     printf("\n→ 通用 API 的优势：切换算法只改 type 参数，代码结构不变\n");
-    printf("→ CBC 用 update/finish，GCM 用 auth_encrypt_ext/auth_decrypt_ext\n");
-    printf("→ 同一套 init/setup/setkey/free 生命周期，接口按模式选择\n");
+    printf("→ CBC 用 update/finish；GCM 可用 auth_ext 一次性接口或流式接口\n");
+    printf("→ GCM 流式: set_iv → reset → update_ad → update → finish → write/check_tag\n");
     return 0;
 }
 

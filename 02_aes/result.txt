@@ -62,9 +62,16 @@
   密文+Tag 长度: 39 bytes (密文 23 + Tag 16)
   解密: "Generic cipher API demo"
 
+[通用 API → GCM (流式接口)]
+  调用序列: set_iv → reset → update_ad → update → finish → write_tag/check_tag
+  密文: 23 bytes, Tag: 16 bytes
+  密文 (23 B): e04286159d2fb25bf5f70a13b28aef8157a300aa702155
+  Tag  (16 B): 45fae076dc00b73f459cb30b210b8adf
+  解密: "Generic cipher API demo" (Tag 验证通过)
+
 → 通用 API 的优势：切换算法只改 type 参数，代码结构不变
-→ CBC 用 update/finish，GCM 用 auth_encrypt_ext/auth_decrypt_ext
-→ 同一套 init/setup/setkey/free 生命周期，接口按模式选择
+→ CBC 用 update/finish；GCM 可用 auth_ext 一次性接口或流式接口
+→ GCM 流式: set_iv → reset → update_ad → update → finish → write/check_tag
 
 ══════════════════════════════════════════════════════
   模式    padding   密文长度   完整性   TLS 适用性
