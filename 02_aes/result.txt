@@ -57,12 +57,14 @@
   算法: AES-256-CBC, 密钥: 256 bits, IV: 16 bytes
   密文长度: 16 bytes (含 padding)
 
-[通用 API → CTR]
-  算法: AES-256-CTR, 密钥: 256 bits, IV: 16 bytes
-  密文长度: 23 bytes (无 padding)
+[通用 API → GCM (AEAD)]
+  算法: AES-256-GCM, 密钥: 256 bits, IV: 12 bytes
+  密文+Tag 长度: 39 bytes (密文 23 + Tag 16)
+  解密: "Generic cipher API demo"
 
 → 通用 API 的优势：切换算法只改 type 参数，代码结构不变
-→ 注意：GCM 没有通用 cipher API 的 AEAD 路径，需直接用 gcm.h
+→ CBC 用 update/finish，GCM 用 auth_encrypt_ext/auth_decrypt_ext
+→ 同一套 init/setup/setkey/free 生命周期，接口按模式选择
 
 ══════════════════════════════════════════════════════
   模式    padding   密文长度   完整性   TLS 适用性

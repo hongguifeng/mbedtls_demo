@@ -387,10 +387,12 @@ static int experiment_tamper(void)
  * 实际项目中通常不直接调 mbedtls_aes_crypt_cbc() 或
  * mbedtls_gcm_crypt_and_tag()，而是用通用 cipher API：
  *   - 通过 mbedtls_cipher_info_from_type() 在运行时选择算法
- *   - 同一套 init/setup/setkey/update/finish/free 流程
+ *   - 同一套 init/setup/setkey/free 流程
  *   - 切换算法只需改一个 type 参数，不用改代码逻辑
  *
- * 这里演示用通用 API 分别跑 CBC 和 CTR，对比代码结构
+ * 这里演示用通用 API 分别跑 CBC 和 GCM：
+ *   - CBC: 用 update/finish 流式接口
+ *   - GCM: 用 auth_encrypt_ext/auth_decrypt_ext AEAD 接口（mbedTLS 3.x 新增）
  * ──────────────────────────────────────────────────────────── */
 static int experiment_cipher_api(void)
 {
@@ -425,11 +427,11 @@ static int experiment_cipher_api(void)
         printf("  密文长度: %zu bytes (含 padding)\n", total);
     }
 
-    /* 用通用 API 跑 CTR */
-    printf("\n[通用 API → CTR]\n");
+    /* 用通用 API 跑 GCM（AEAD 接口） */
+    printf("\n[通用 API → GCM (AEAD)]\n");
     {
         const mbedtls_cipher_info_t *info =
-            mbedtls_cipher_info_from_type(MBEDTLS_CIPHER_AES_256_CTR);
+            mbedtls_cipher_info_from_type(MBEDTLS_CIPHER_AES_256_GCM);
         printf("  算法: %s, 密钥: %d bits, IV: %d bytes\n",
                mbedtls_cipher_info_get_name(info),
                (int)mbedtls_cipher_info_get_key_bitlen(info),
@@ -439,18 +441,43 @@ static int experiment_cipher_api(void)
         mbedtls_cipher_init(&ctx);
         mbedtls_cipher_setup(&ctx, info);
         mbedtls_cipher_setkey(&ctx, g_key, 256, MBEDTLS_ENCRYPT);
-        mbedtls_cipher_set_iv(&ctx, g_nonce_ctr, 16);
-        mbedtls_cipher_reset(&ctx);
-        mbedtls_cipher_update(&ctx, (const unsigned char *)pt, pt_len, ct, &olen);
-        size_t total = olen;
-        mbedtls_cipher_finish(&ctx, ct + olen, &olen);
-        total += olen;
+
+        /* AEAD 加密：iv + aad + 明文 → 密文 + tag */
+        int ret = mbedtls_cipher_auth_encrypt_ext(
+            &ctx,
+            g_nonce_gcm, 12,           /* nonce */
+            g_aad, sizeof(g_aad),      /* 关联数据 */
+            (const unsigned char *)pt, pt_len,  /* 明文 */
+            ct, sizeof(ct),            /* 输出缓冲区 */
+            &olen, 16);                /* tag 长度 */
+        if (ret != 0) {
+            printf("  加密失败: -0x%04x\n", -ret);
+            mbedtls_cipher_free(&ctx);
+            return ret;
+        }
+        printf("  密文+Tag 长度: %zu bytes (密文 %zu + Tag 16)\n",
+               olen, olen - 16);
+
+        /* AEAD 解密：验证 tag + 解密 */
+        mbedtls_cipher_setkey(&ctx, g_key, 256, MBEDTLS_DECRYPT);
+        ret = mbedtls_cipher_auth_decrypt_ext(
+            &ctx,
+            g_nonce_gcm, 12,
+            g_aad, sizeof(g_aad),
+            ct, olen,                  /* 密文+tag */
+            out, sizeof(out),
+            &olen, 16);
         mbedtls_cipher_free(&ctx);
-        printf("  密文长度: %zu bytes (无 padding)\n", total);
+        if (ret != 0) {
+            printf("  解密失败: -0x%04x\n", -ret);
+            return ret;
+        }
+        printf("  解密: \"%.*s\"\n", (int)olen, out);
     }
 
     printf("\n→ 通用 API 的优势：切换算法只改 type 参数，代码结构不变\n");
-    printf("→ 注意：GCM 没有通用 cipher API 的 AEAD 路径，需直接用 gcm.h\n");
+    printf("→ CBC 用 update/finish，GCM 用 auth_encrypt_ext/auth_decrypt_ext\n");
+    printf("→ 同一套 init/setup/setkey/free 生命周期，接口按模式选择\n");
     return 0;
 }
 
