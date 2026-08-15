@@ -105,24 +105,14 @@
                 "$gcc"
             ],
             "detail": "Pick an example (01-15), auto-detect sub-project and build it"
-        },
-        {
-            "label": "Run Example (select)",
-            "type": "shell",
-            "command": "bash",
-            "args": [
-                "-c",
-                "t='${input:exampleTarget}'; case \"$t\" in 0[1-8]*) d=mbedtls_36 ;; *) d=mbedtls_42 ;; esac; cd \"${workspaceFolder}/$d\" && ./build/$t"
-            ],
-            "problemMatcher": [],
-            "detail": "Pick an example (01-15), auto-detect sub-project and run it"
         }
     ],
     "inputs": [
         {
             "id": "exampleTarget",
             "type": "pickString",
-            "description": "选择要构建/运行的 mbedTLS 示例 (01-08: mbedtls_36, 09-15: mbedtls_42)",
+            "description": "选择要构建/调试的 mbedTLS 示例 (01-08: mbedtls_36, 09-15: mbedtls_42)",
+            "default": "01_hash",
             "options": [
                 "01_hash",
                 "02_aes",
