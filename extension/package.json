@@ -1,0 +1,29 @@
+{
+    "name": "mbedtls-demo-runner",
+    "publisher": "hong",
+    "displayName": "mbedTLS Demo Runner",
+    "description": "Quick-pick runner for mbedtls_demo examples (01-15)",
+    "version": "0.0.1",
+    "engines": {
+        "vscode": "^1.75.0"
+    },
+    "main": "./extension.js",
+    "activationEvents": [
+        "onCommand:mbedtlsDemo.runExample"
+    ],
+    "contributes": {
+        "commands": [
+            {
+                "command": "mbedtlsDemo.runExample",
+                "title": "mbedTLS: 运行示例 (Quick Pick)"
+            }
+        ],
+        "keybindings": [
+            {
+                "command": "mbedtlsDemo.runExample",
+                "key": "ctrl+alt+m",
+                "when": "editorTextFocus"
+            }
+        ]
+    }
+}
