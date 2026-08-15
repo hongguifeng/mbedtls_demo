@@ -17,6 +17,11 @@ SHA-384 (48 bytes): b5a0b3ddcd52ae6479519d92241fd5196e5f483e764dd501b2621538c677
 算法: SHA512, 输出长度: 64 bytes
 SHA-512 (64 bytes): c0543424d883a9dc33d0f08c9644e718bd4cc1bac924bc1b560602d2f797713cd811d304b8375f4436c0725c0946d03a17e59e64ee356eefd28535882c6b9745
 
+=== 示例2b: 通用 MD 上下文 API（流式处理）===
+SHA-256 (分3次update) (32 bytes): e8cfd3e19db0a9d575ffdcf6576284b828feadd252cc70a0d441a22dfbf2444c
+SHA-256 (一次性update) (32 bytes): e8cfd3e19db0a9d575ffdcf6576284b828feadd252cc70a0d441a22dfbf2444c
+两次结果一致，说明分块 update 与一次性 update 等价
+
 === 示例3: 雪崩效应演示 ===
 输入1: "Hello, mbedTLS!"
 Hash1 (32 bytes): e8cfd3e19db0a9d575ffdcf6576284b828feadd252cc70a0d441a22dfbf2444c

@@ -113,6 +113,69 @@ static int example_md_generic(void)
 }
 
 /**
+ * 示例2b：使用通用 MD 上下文 API（init/setup/starts/update/finish/free）
+ *
+ * 与示例2 的一次性 mbedtls_md() 不同，这套接口基于 mbedtls_md_context_t，
+ * 适合以下场景：
+ * - 流式处理：数据分多次到达（如网络包、文件分块读取），逐块 update
+ * - 复用上下文：setup 一次后，多次 starts/update/finish 计算不同消息
+ * - 与 HMAC 接口共用同一套上下文管理（见示例4）
+ *
+ * 生命周期：
+ *   mbedtls_md_init()   -> 分配/清零上下文（栈上变量必须调用）
+ *   mbedtls_md_setup()  -> 绑定算法（md_info 为 NULL 表示不绑定，可后续再设）
+ *   mbedtls_md_starts() -> 开始一次新的计算
+ *   mbedtls_md_update() -> 喂入数据，可调用任意多次
+ *   mbedtls_md_finish() -> 输出摘要
+ *   mbedtls_md_free()   -> 释放资源（栈上变量也必须调用，与 init 配对）
+ */
+static int example_md_context(void)
+{
+    printf("\n=== 示例2b: 通用 MD 上下文 API（流式处理）===\n");
+
+    mbedtls_md_context_t ctx;
+    const mbedtls_md_info_t *md_info;
+    unsigned char hash[64];
+    size_t hash_len;
+
+    /* 1. 初始化上下文（清零，栈上变量必须调用） */
+    mbedtls_md_init(&ctx);
+
+    /* 2. 绑定算法：SHA-256，第三个参数 0 表示普通哈希（1 表示 HMAC） */
+    md_info = mbedtls_md_info_from_type(MBEDTLS_MD_SHA256);
+    mbedtls_md_setup(&ctx, md_info, 0);
+    hash_len = mbedtls_md_get_size(md_info);
+
+    /* 3. 开始一次计算 */
+    mbedtls_md_starts(&ctx);
+
+    /* 4. 分多次喂入数据（模拟流式场景，如逐块读取文件） */
+    const char *part1 = "Hello, ";
+    const char *part2 = "mbedTLS";
+    const char *part3 = "!";
+    mbedtls_md_update(&ctx, (const unsigned char *)part1, strlen(part1));
+    mbedtls_md_update(&ctx, (const unsigned char *)part2, strlen(part2));
+    mbedtls_md_update(&ctx, (const unsigned char *)part3, strlen(part3));
+
+    /* 5. 输出结果 */
+    mbedtls_md_finish(&ctx, hash);
+    print_hex("SHA-256 (分3次update)", hash, hash_len);
+
+    /* 6. 复用同一上下文计算另一条消息（无需重新 init/setup） */
+    const char *msg2 = "Hello, mbedTLS!";
+    mbedtls_md_starts(&ctx);
+    mbedtls_md_update(&ctx, (const unsigned char *)msg2, strlen(msg2));
+    mbedtls_md_finish(&ctx, hash);
+    print_hex("SHA-256 (一次性update)", hash, hash_len);
+    printf("两次结果一致，说明分块 update 与一次性 update 等价\n");
+
+    /* 7. 释放资源（与 init 配对，即使 ctx 在栈上也要调用） */
+    mbedtls_md_free(&ctx);
+
+    return 0;
+}
+
+/**
  * 示例3：演示哈希的雪崩效应
  * 即使只改变一个字符，输出也完全不同
  */
@@ -192,6 +255,7 @@ int main(void)
 
     example_sha256_low_level();
     example_md_generic();
+    example_md_context();
     example_avalanche_effect();
     example_hmac();
 
