@@ -2,13 +2,13 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Debug 01_hash",
+            "name": "Debug Example (select)",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/mbedtls_36/build/01_hash",
+            "program": "${workspaceFolder}/${input:subProject}/build/${input:exampleTarget}",
             "args": [],
             "stopAtEntry": false,
-            "cwd": "${workspaceFolder}/mbedtls_36",
+            "cwd": "${workspaceFolder}/${input:subProject}",
             "environment": [],
             "externalConsole": false,
             "MIMode": "gdb",
@@ -19,323 +19,43 @@
                     "ignoreFailures": true
                 }
             ],
-            "preLaunchTask": "Build 01_hash",
+            "preLaunchTask": "Build Example (select)",
             "miDebuggerPath": "/usr/bin/gdb"
+        }
+    ],
+    "inputs": [
+        {
+            "id": "exampleTarget",
+            "type": "pickString",
+            "description": "选择要调试的 mbedTLS 示例 (01-08: mbedtls_36, 09-15: mbedtls_42)",
+            "default": "01_hash",
+            "options": [
+                "01_hash",
+                "02_aes",
+                "03_rsa",
+                "04_ecc",
+                "05_x509_parse",
+                "06_tls_client",
+                "07_tls_mutual",
+                "08_custom_bio",
+                "09_psa_hash",
+                "10_psa_cipher",
+                "11_psa_aead",
+                "12_psa_mac",
+                "13_psa_asymmetric",
+                "14_psa_kdf",
+                "15_psa_key_mgmt"
+            ]
         },
         {
-            "name": "Debug 02_aes",
-            "type": "cppdbg",
-            "request": "launch",
-            "program": "${workspaceFolder}/mbedtls_36/build/02_aes",
-            "args": [],
-            "stopAtEntry": false,
-            "cwd": "${workspaceFolder}/mbedtls_36",
-            "environment": [],
-            "externalConsole": false,
-            "MIMode": "gdb",
-            "setupCommands": [
-                {
-                    "description": "Enable pretty-printing for gdb",
-                    "text": "-enable-pretty-printing",
-                    "ignoreFailures": true
-                }
-            ],
-            "preLaunchTask": "Build 02_aes",
-            "miDebuggerPath": "/usr/bin/gdb"
-        },
-        {
-            "name": "Debug 03_rsa",
-            "type": "cppdbg",
-            "request": "launch",
-            "program": "${workspaceFolder}/mbedtls_36/build/03_rsa",
-            "args": [],
-            "stopAtEntry": false,
-            "cwd": "${workspaceFolder}/mbedtls_36",
-            "environment": [],
-            "externalConsole": false,
-            "MIMode": "gdb",
-            "setupCommands": [
-                {
-                    "description": "Enable pretty-printing for gdb",
-                    "text": "-enable-pretty-printing",
-                    "ignoreFailures": true
-                }
-            ],
-            "preLaunchTask": "Build 03_rsa",
-            "miDebuggerPath": "/usr/bin/gdb"
-        },
-        {
-            "name": "Debug 04_ecc",
-            "type": "cppdbg",
-            "request": "launch",
-            "program": "${workspaceFolder}/mbedtls_36/build/04_ecc",
-            "args": [],
-            "stopAtEntry": false,
-            "cwd": "${workspaceFolder}/mbedtls_36",
-            "environment": [],
-            "externalConsole": false,
-            "MIMode": "gdb",
-            "setupCommands": [
-                {
-                    "description": "Enable pretty-printing for gdb",
-                    "text": "-enable-pretty-printing",
-                    "ignoreFailures": true
-                }
-            ],
-            "preLaunchTask": "Build 04_ecc",
-            "miDebuggerPath": "/usr/bin/gdb"
-        },
-        {
-            "name": "Debug 05_x509_parse",
-            "type": "cppdbg",
-            "request": "launch",
-            "program": "${workspaceFolder}/mbedtls_36/build/05_x509_parse",
-            "args": [],
-            "stopAtEntry": false,
-            "cwd": "${workspaceFolder}/mbedtls_36",
-            "environment": [],
-            "externalConsole": false,
-            "MIMode": "gdb",
-            "setupCommands": [
-                {
-                    "description": "Enable pretty-printing for gdb",
-                    "text": "-enable-pretty-printing",
-                    "ignoreFailures": true
-                }
-            ],
-            "preLaunchTask": "Build 05_x509_parse",
-            "miDebuggerPath": "/usr/bin/gdb"
-        },
-        {
-            "name": "Debug 06_tls_client",
-            "type": "cppdbg",
-            "request": "launch",
-            "program": "${workspaceFolder}/mbedtls_36/build/06_tls_client",
-            "args": [],
-            "stopAtEntry": false,
-            "cwd": "${workspaceFolder}/mbedtls_36",
-            "environment": [],
-            "externalConsole": false,
-            "MIMode": "gdb",
-            "setupCommands": [
-                {
-                    "description": "Enable pretty-printing for gdb",
-                    "text": "-enable-pretty-printing",
-                    "ignoreFailures": true
-                }
-            ],
-            "preLaunchTask": "Build 06_tls_client",
-            "miDebuggerPath": "/usr/bin/gdb"
-        },
-        {
-            "name": "Debug 07_tls_mutual",
-            "type": "cppdbg",
-            "request": "launch",
-            "program": "${workspaceFolder}/mbedtls_36/build/07_tls_mutual",
-            "args": [],
-            "stopAtEntry": false,
-            "cwd": "${workspaceFolder}/mbedtls_36",
-            "environment": [],
-            "externalConsole": false,
-            "MIMode": "gdb",
-            "setupCommands": [
-                {
-                    "description": "Enable pretty-printing for gdb",
-                    "text": "-enable-pretty-printing",
-                    "ignoreFailures": true
-                }
-            ],
-            "preLaunchTask": "Build 07_tls_mutual",
-            "miDebuggerPath": "/usr/bin/gdb"
-        },
-        {
-            "name": "Debug 08_custom_bio",
-            "type": "cppdbg",
-            "request": "launch",
-            "program": "${workspaceFolder}/mbedtls_36/build/08_custom_bio",
-            "args": [],
-            "stopAtEntry": false,
-            "cwd": "${workspaceFolder}/mbedtls_36",
-            "environment": [],
-            "externalConsole": false,
-            "MIMode": "gdb",
-            "setupCommands": [
-                {
-                    "description": "Enable pretty-printing for gdb",
-                    "text": "-enable-pretty-printing",
-                    "ignoreFailures": true
-                }
-            ],
-            "preLaunchTask": "Build 08_custom_bio",
-            "miDebuggerPath": "/usr/bin/gdb"
-        },
-        {
-            "name": "Debug 09_psa_hash",
-            "type": "cppdbg",
-            "request": "launch",
-            "program": "${workspaceFolder}/mbedtls_42/build/09_psa_hash",
-            "args": [],
-            "stopAtEntry": false,
-            "cwd": "${workspaceFolder}/mbedtls_42",
-            "environment": [],
-            "externalConsole": false,
-            "MIMode": "gdb",
-            "setupCommands": [
-                {
-                    "description": "Enable pretty-printing for gdb",
-                    "text": "-enable-pretty-printing",
-                    "ignoreFailures": true
-                }
-            ],
-            "preLaunchTask": "Build 09_psa_hash",
-            "miDebuggerPath": "/usr/bin/gdb"
-        },
-        {
-            "name": "Debug 10_psa_cipher",
-            "type": "cppdbg",
-            "request": "launch",
-            "program": "${workspaceFolder}/mbedtls_42/build/10_psa_cipher",
-            "args": [],
-            "stopAtEntry": false,
-            "cwd": "${workspaceFolder}/mbedtls_42",
-            "environment": [],
-            "externalConsole": false,
-            "MIMode": "gdb",
-            "setupCommands": [
-                {
-                    "description": "Enable pretty-printing for gdb",
-                    "text": "-enable-pretty-printing",
-                    "ignoreFailures": true
-                }
-            ],
-            "preLaunchTask": "Build 10_psa_cipher",
-            "miDebuggerPath": "/usr/bin/gdb"
-        },
-        {
-            "name": "Debug 11_psa_aead",
-            "type": "cppdbg",
-            "request": "launch",
-            "program": "${workspaceFolder}/mbedtls_42/build/11_psa_aead",
-            "args": [],
-            "stopAtEntry": false,
-            "cwd": "${workspaceFolder}/mbedtls_42",
-            "environment": [],
-            "externalConsole": false,
-            "MIMode": "gdb",
-            "setupCommands": [
-                {
-                    "description": "Enable pretty-printing for gdb",
-                    "text": "-enable-pretty-printing",
-                    "ignoreFailures": true
-                }
-            ],
-            "preLaunchTask": "Build 11_psa_aead",
-            "miDebuggerPath": "/usr/bin/gdb"
-        },
-        {
-            "name": "Debug 12_psa_mac",
-            "type": "cppdbg",
-            "request": "launch",
-            "program": "${workspaceFolder}/mbedtls_42/build/12_psa_mac",
-            "args": [],
-            "stopAtEntry": false,
-            "cwd": "${workspaceFolder}/mbedtls_42",
-            "environment": [],
-            "externalConsole": false,
-            "MIMode": "gdb",
-            "setupCommands": [
-                {
-                    "description": "Enable pretty-printing for gdb",
-                    "text": "-enable-pretty-printing",
-                    "ignoreFailures": true
-                }
-            ],
-            "preLaunchTask": "Build 12_psa_mac",
-            "miDebuggerPath": "/usr/bin/gdb"
-        },
-        {
-            "name": "Debug 13_psa_asymmetric",
-            "type": "cppdbg",
-            "request": "launch",
-            "program": "${workspaceFolder}/mbedtls_42/build/13_psa_asymmetric",
-            "args": [],
-            "stopAtEntry": false,
-            "cwd": "${workspaceFolder}/mbedtls_42",
-            "environment": [],
-            "externalConsole": false,
-            "MIMode": "gdb",
-            "setupCommands": [
-                {
-                    "description": "Enable pretty-printing for gdb",
-                    "text": "-enable-pretty-printing",
-                    "ignoreFailures": true
-                }
-            ],
-            "preLaunchTask": "Build 13_psa_asymmetric",
-            "miDebuggerPath": "/usr/bin/gdb"
-        },
-        {
-            "name": "Debug 14_psa_kdf",
-            "type": "cppdbg",
-            "request": "launch",
-            "program": "${workspaceFolder}/mbedtls_42/build/14_psa_kdf",
-            "args": [],
-            "stopAtEntry": false,
-            "cwd": "${workspaceFolder}/mbedtls_42",
-            "environment": [],
-            "externalConsole": false,
-            "MIMode": "gdb",
-            "setupCommands": [
-                {
-                    "description": "Enable pretty-printing for gdb",
-                    "text": "-enable-pretty-printing",
-                    "ignoreFailures": true
-                }
-            ],
-            "preLaunchTask": "Build 14_psa_kdf",
-            "miDebuggerPath": "/usr/bin/gdb"
-        },
-        {
-            "name": "Debug 15_psa_key_mgmt",
-            "type": "cppdbg",
-            "request": "launch",
-            "program": "${workspaceFolder}/mbedtls_42/build/15_psa_key_mgmt",
-            "args": [],
-            "stopAtEntry": false,
-            "cwd": "${workspaceFolder}/mbedtls_42",
-            "environment": [],
-            "externalConsole": false,
-            "MIMode": "gdb",
-            "setupCommands": [
-                {
-                    "description": "Enable pretty-printing for gdb",
-                    "text": "-enable-pretty-printing",
-                    "ignoreFailures": true
-                }
-            ],
-            "preLaunchTask": "Build 15_psa_key_mgmt",
-            "miDebuggerPath": "/usr/bin/gdb"
-        },
-        {
-            "name": "Debug All (Rebuild)",
-            "type": "cppdbg",
-            "request": "launch",
-            "program": "${workspaceFolder}/mbedtls_36/build/01_hash",
-            "args": [],
-            "stopAtEntry": false,
-            "cwd": "${workspaceFolder}/mbedtls_36",
-            "environment": [],
-            "externalConsole": false,
-            "MIMode": "gdb",
-            "setupCommands": [
-                {
-                    "description": "Enable pretty-printing for gdb",
-                    "text": "-enable-pretty-printing",
-                    "ignoreFailures": true
-                }
-            ],
-            "preLaunchTask": "Build All (36 + 42)",
-            "miDebuggerPath": "/usr/bin/gdb"
+            "id": "subProject",
+            "type": "pickString",
+            "description": "选择示例所属子项目 (01-08: mbedtls_36, 09-15: mbedtls_42)",
+            "default": "mbedtls_36",
+            "options": [
+                "mbedtls_36",
+                "mbedtls_42"
+            ]
         }
     ]
 }
