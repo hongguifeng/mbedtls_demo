@@ -449,16 +449,13 @@ int main(void)
                                    &ctr_drbg, 0);
     if (ret != 0) goto exit;
 
-    /* 将 EE + Sub CA 的 PEM 拼接后一次性解析，
-     * mbedtls_x509_crt_parse 会自动建立 next 链（正确方式，不直接修改 next） */
-    unsigned char chain_pem[8192];
-    size_t sub_len = strlen((char *)sub_pem);
-    size_t ee_len = strlen((char *)ee_pem);
-    memcpy(chain_pem, ee_pem, ee_len);
-    memcpy(chain_pem + ee_len, sub_pem, sub_len + 1);
-    ret = mbedtls_x509_crt_parse(&ee_cert, chain_pem, sizeof(chain_pem));
-    if (ret != 0) { printf("解析证书链失败: -0x%04x\n", -ret); goto exit; }
-    /* ee_cert 现在是链头，ee_cert->next 指向 sub_cert（由 parse 自动建立） */
+    /* 多次 parse 到同一个结构体，mbedTLS 自动追加到链尾（建立 next 链）
+     * 这是官方推荐方式，不需要手动拼接 PEM 或修改 next */
+    ret = mbedtls_x509_crt_parse(&ee_cert, ee_pem, sizeof(ee_pem));
+    if (ret != 0) { printf("解析 EE 证书失败: -0x%04x\n", -ret); goto exit; }
+    ret = mbedtls_x509_crt_parse(&ee_cert, sub_pem, sizeof(sub_pem));
+    if (ret != 0) { printf("解析 Sub CA 证书失败: -0x%04x\n", -ret); goto exit; }
+    /* 现在: ee_cert (链头) → ee_cert->next (Sub CA) → NULL */
     sub_cert = *ee_cert.next;
 
     /* 运行示例 */
