@@ -1,0 +1,27 @@
+╔══════════════════════════════════════════════════╗
+║   mbedTLS 4.x PSA Crypto API - KDF + Key Agree. ║
+╚══════════════════════════════════════════════════╝
+PSA Crypto 子系统初始化成功
+
+=== 示例1: HKDF-SHA256 密钥派生 ===
+HKDF 输出 (OKM) (32 bytes): d32b9cf4146bb6a4815c4382c0d4f7c68bc55e0fb53937641434633cef8632f4
+
+  --- 派生为 AES-256 密钥 ---
+  ✓ HKDF 派生出 AES-256-GCM 密钥 (key_id=1073741825)
+  ✓ 派生密钥可用于 AES-GCM 加密 (37 字节密文)
+
+=== 示例2: ECDH 密钥协商 + HKDF 派生 ===
+  Alice ECC P-256 密钥对已生成
+  Bob ECC P-256 密钥对已生成
+  公钥交换完成 (各 65 字节)
+  Alice ECDH 共享秘密已计算 (key_id=1073741826)
+  Bob ECDH 共享秘密已计算 (key_id=1073741827)
+  ✓ Alice 和 Bob 的共享秘密一致
+  ✓ HKDF 派生出会话 AES-256-GCM 密钥 (key_id=1073741828)
+  ✓ 会话密钥加密/解密验证通过
+
+=== 示例3: HKDF-Extract (仅 Extract 阶段) ===
+PRK (HMAC-SHA256) (32 bytes): fb2245d8a82428b3fd7733a52a085aa6f7e96a2ac7b102b58fc578ba3ac85387
+  ✓ HKDF-Extract 完成
+
+✓ 所有示例执行成功

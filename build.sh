@@ -1,28 +1,28 @@
 #!/bin/bash
 set -e
 
-echo "=== 构建 mbedTLS 教程示例 ==="
-echo ""
-
 cd "$(dirname "$0")"
 
-if [ ! -d build ]; then
-    mkdir build
-fi
+echo "=============================================="
+echo "  mbedTLS 教程 - 总构建脚本"
+echo "=============================================="
+echo ""
 
-cd build
-cmake .. -DCMAKE_BUILD_TYPE=Debug
-make -j$(nproc)
+# Build mbedTLS 3.6 sub-project
+echo ">>> [1/2] 构建 mbedtls_36 (mbedTLS 3.6.0 LTS)"
+echo ""
+cd mbedtls_36
+./build.sh
+cd ..
 
 echo ""
-echo "=== 构建完成! ==="
+echo ">>> [2/2] 构建 mbedtls_42 (mbedTLS 4.2.0 PSA Crypto)"
 echo ""
-echo "可运行的示例:"
-echo "  ./build/01_hash        - 哈希/摘要算法"
-echo "  ./build/02_aes         - 对称加密 (AES)"
-echo "  ./build/03_rsa         - 非对称加密 (RSA)"
-echo "  ./build/04_ecc         - 椭圆曲线密码学"
-echo "  ./build/05_x509_parse  - X.509 证书解析"
-echo "  ./build/06_tls_client  - TLS 客户端 (需要网络)"
-echo "  ./build/07_tls_mutual  - TLS 双向认证 (本地)"
-echo "  ./build/08_custom_bio  - 自定义 BIO (需要网络)"
+cd mbedtls_42
+./build.sh
+cd ..
+
+echo ""
+echo "=============================================="
+echo "  全部构建完成!"
+echo "=============================================="

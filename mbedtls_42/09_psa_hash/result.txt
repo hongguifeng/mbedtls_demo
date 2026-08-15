@@ -1,0 +1,30 @@
+╔══════════════════════════════════════════════════╗
+║   mbedTLS 4.x PSA Crypto API - 哈希/摘要算法     ║
+╚══════════════════════════════════════════════════╝
+PSA Crypto 子系统初始化成功
+
+=== 示例1: psa_hash_compute() 一次性哈希 ===
+
+输入: "Hello, mbedTLS 4.x PSA!"
+SHA-256 (32 bytes): 7b4864e57d3085ff1bcf9ce3533b347a148b137c0fb73da9d504531b6d347d43
+SHA-384 (48 bytes): a31335ab5caf433b81034c26c0bf55705795585e9520d38772e1e1cca987a49e656bcfbebfa311d0934652776e616ab0
+SHA-512 (64 bytes): d0bc9cda7cc818d8f03b8c855bf53b8a185002e2542c352d3a72d26962958e2784253c1eda9be762377e277daab6ad9510e89412028931a81556140736d350c3
+
+  PSA_HASH_LENGTH(PSA_ALG_SHA_256) = 32
+  PSA_HASH_LENGTH(PSA_ALG_SHA_384) = 48
+  PSA_HASH_LENGTH(PSA_ALG_SHA_512) = 64
+
+=== 示例2: psa_hash_setup/update/finish() 流式哈希 ===
+输入分块: "Hello, ""mbedTLS ""4.x ""PSA! "
+SHA-256 (流式) (32 bytes): 665f32088d180c7d00650e20f5e1d5a99bef609db3bf0e213a1f80c645804bcc
+  ✓ 流式计算结果与一次性计算一致
+
+=== 示例3: psa_hash_compare() 哈希验证 ===
+输入: "mbedTLS PSA integrity check"
+  ✓ 哈希验证通过（数据完整）
+  ✓ 篡改检测成功（返回 PSA_ERROR_INVALID_SIGNATURE）
+
+=== 示例4: psa_hash_abort() 中止操作 ===
+  ✓ 哈希操作已安全中止，资源已释放
+
+✓ 所有示例执行成功

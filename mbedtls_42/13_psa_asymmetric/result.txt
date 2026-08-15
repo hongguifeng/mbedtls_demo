@@ -1,0 +1,32 @@
+╔══════════════════════════════════════════════════╗
+║   mbedTLS 4.x PSA Crypto API - 非对称加密        ║
+╚══════════════════════════════════════════════════╝
+PSA Crypto 子系统初始化成功
+
+=== 示例1: ECC P-256 ECDSA 签名/验证 ===
+  ECC P-256 密钥对已生成 (key_id=1073741824)
+ECC 公钥 (65 bytes): 04d4d29ac2e71fefd81bad7e0694ed2577c53ab4a313d2acd69719310f60b89c47adb6e082bbffb6fdcc52c9c9e96831b111c921bd2f47877c42db743940c0b21e
+ECDSA 签名 (64 bytes): 21f19712b0fd866f09c010d097bb3e2507d4bb4e668d2a807456558b6e59483a58e81b1bdf8299de7b132f6ff2920f5fc78d0870613a8c1e56c6cbc8012537a8
+  ✓ ECDSA 签名验证通过
+  ✓ 独立公钥验证通过
+  ✓ 篡改消息检测成功
+
+=== 示例2: ECC P-384 ECDSA ===
+  ECC P-384 密钥对已生成 (key_id=1073741824)
+  公钥长度: 97 字节
+  签名长度: 96 字节
+  ✓ P-384 ECDSA 验证通过
+
+=== 示例3: RSA-2048 PKCS#1 v1.5 签名/验证 ===
+  RSA-2048 密钥对已生成 (key_id=1073741824)
+  RSA 公钥长度: 270 字节
+  RSA 签名长度: 256 字节
+  ✓ RSA 签名验证通过
+  ✓ RSA 篡改检测成功
+
+=== 示例4: psa_sign_hash / psa_verify_hash ===
+SHA-256 哈希 (32 bytes): dfa4ab421aa7fed82f3b4365c5ef86e6c615480dbaa5fd4382b1444f6cd34c0f
+  ECDSA 签名长度: 64 字节
+  ✓ sign_hash/verify_hash 验证通过
+
+✓ 所有示例执行成功
