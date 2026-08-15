@@ -1,6 +1,5 @@
 build/
 .cache/
-*.vsix
 *.o
 *.obj
 *.a
