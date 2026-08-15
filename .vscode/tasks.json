@@ -2,6 +2,246 @@
     "version": "2.0.0",
     "tasks": [
         {
+            "label": "Build 01_hash",
+            "type": "shell",
+            "command": "cmake",
+            "args": [
+                "--build",
+                "${workspaceFolder}/mbedtls_36/build",
+                "--target",
+                "01_hash"
+            ],
+            "group": "build",
+            "problemMatcher": [
+                "$gcc"
+            ],
+            "detail": "01_hash (mbedtls_36)"
+        },
+        {
+            "label": "Build 02_aes",
+            "type": "shell",
+            "command": "cmake",
+            "args": [
+                "--build",
+                "${workspaceFolder}/mbedtls_36/build",
+                "--target",
+                "02_aes"
+            ],
+            "group": "build",
+            "problemMatcher": [
+                "$gcc"
+            ],
+            "detail": "02_aes (mbedtls_36)"
+        },
+        {
+            "label": "Build 03_rsa",
+            "type": "shell",
+            "command": "cmake",
+            "args": [
+                "--build",
+                "${workspaceFolder}/mbedtls_36/build",
+                "--target",
+                "03_rsa"
+            ],
+            "group": "build",
+            "problemMatcher": [
+                "$gcc"
+            ],
+            "detail": "03_rsa (mbedtls_36)"
+        },
+        {
+            "label": "Build 04_ecc",
+            "type": "shell",
+            "command": "cmake",
+            "args": [
+                "--build",
+                "${workspaceFolder}/mbedtls_36/build",
+                "--target",
+                "04_ecc"
+            ],
+            "group": "build",
+            "problemMatcher": [
+                "$gcc"
+            ],
+            "detail": "04_ecc (mbedtls_36)"
+        },
+        {
+            "label": "Build 05_x509_parse",
+            "type": "shell",
+            "command": "cmake",
+            "args": [
+                "--build",
+                "${workspaceFolder}/mbedtls_36/build",
+                "--target",
+                "05_x509_parse"
+            ],
+            "group": "build",
+            "problemMatcher": [
+                "$gcc"
+            ],
+            "detail": "05_x509_parse (mbedtls_36)"
+        },
+        {
+            "label": "Build 06_tls_client",
+            "type": "shell",
+            "command": "cmake",
+            "args": [
+                "--build",
+                "${workspaceFolder}/mbedtls_36/build",
+                "--target",
+                "06_tls_client"
+            ],
+            "group": "build",
+            "problemMatcher": [
+                "$gcc"
+            ],
+            "detail": "06_tls_client (mbedtls_36)"
+        },
+        {
+            "label": "Build 07_tls_mutual",
+            "type": "shell",
+            "command": "cmake",
+            "args": [
+                "--build",
+                "${workspaceFolder}/mbedtls_36/build",
+                "--target",
+                "07_tls_mutual"
+            ],
+            "group": "build",
+            "problemMatcher": [
+                "$gcc"
+            ],
+            "detail": "07_tls_mutual (mbedtls_36)"
+        },
+        {
+            "label": "Build 08_custom_bio",
+            "type": "shell",
+            "command": "cmake",
+            "args": [
+                "--build",
+                "${workspaceFolder}/mbedtls_36/build",
+                "--target",
+                "08_custom_bio"
+            ],
+            "group": "build",
+            "problemMatcher": [
+                "$gcc"
+            ],
+            "detail": "08_custom_bio (mbedtls_36)"
+        },
+        {
+            "label": "Build 09_psa_hash",
+            "type": "shell",
+            "command": "cmake",
+            "args": [
+                "--build",
+                "${workspaceFolder}/mbedtls_42/build",
+                "--target",
+                "09_psa_hash"
+            ],
+            "group": "build",
+            "problemMatcher": [
+                "$gcc"
+            ],
+            "detail": "09_psa_hash (mbedtls_42)"
+        },
+        {
+            "label": "Build 10_psa_cipher",
+            "type": "shell",
+            "command": "cmake",
+            "args": [
+                "--build",
+                "${workspaceFolder}/mbedtls_42/build",
+                "--target",
+                "10_psa_cipher"
+            ],
+            "group": "build",
+            "problemMatcher": [
+                "$gcc"
+            ],
+            "detail": "10_psa_cipher (mbedtls_42)"
+        },
+        {
+            "label": "Build 11_psa_aead",
+            "type": "shell",
+            "command": "cmake",
+            "args": [
+                "--build",
+                "${workspaceFolder}/mbedtls_42/build",
+                "--target",
+                "11_psa_aead"
+            ],
+            "group": "build",
+            "problemMatcher": [
+                "$gcc"
+            ],
+            "detail": "11_psa_aead (mbedtls_42)"
+        },
+        {
+            "label": "Build 12_psa_mac",
+            "type": "shell",
+            "command": "cmake",
+            "args": [
+                "--build",
+                "${workspaceFolder}/mbedtls_42/build",
+                "--target",
+                "12_psa_mac"
+            ],
+            "group": "build",
+            "problemMatcher": [
+                "$gcc"
+            ],
+            "detail": "12_psa_mac (mbedtls_42)"
+        },
+        {
+            "label": "Build 13_psa_asymmetric",
+            "type": "shell",
+            "command": "cmake",
+            "args": [
+                "--build",
+                "${workspaceFolder}/mbedtls_42/build",
+                "--target",
+                "13_psa_asymmetric"
+            ],
+            "group": "build",
+            "problemMatcher": [
+                "$gcc"
+            ],
+            "detail": "13_psa_asymmetric (mbedtls_42)"
+        },
+        {
+            "label": "Build 14_psa_kdf",
+            "type": "shell",
+            "command": "cmake",
+            "args": [
+                "--build",
+                "${workspaceFolder}/mbedtls_42/build",
+                "--target",
+                "14_psa_kdf"
+            ],
+            "group": "build",
+            "problemMatcher": [
+                "$gcc"
+            ],
+            "detail": "14_psa_kdf (mbedtls_42)"
+        },
+        {
+            "label": "Build 15_psa_key_mgmt",
+            "type": "shell",
+            "command": "cmake",
+            "args": [
+                "--build",
+                "${workspaceFolder}/mbedtls_42/build",
+                "--target",
+                "15_psa_key_mgmt"
+            ],
+            "group": "build",
+            "problemMatcher": [
+                "$gcc"
+            ],
+            "detail": "15_psa_key_mgmt (mbedtls_42)"
+        },
+        {
             "label": "Build All (36 + 42)",
             "type": "shell",
             "command": "bash",
