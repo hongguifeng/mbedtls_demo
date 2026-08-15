@@ -1,0 +1,194 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Debug 01_hash",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/01_hash",
+            "args": [],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "Build 01_hash",
+            "miDebuggerPath": "/usr/bin/gdb"
+        },
+        {
+            "name": "Debug 02_aes",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/02_aes",
+            "args": [],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "Build 02_aes",
+            "miDebuggerPath": "/usr/bin/gdb"
+        },
+        {
+            "name": "Debug 03_rsa",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/03_rsa",
+            "args": [],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "Build 03_rsa",
+            "miDebuggerPath": "/usr/bin/gdb"
+        },
+        {
+            "name": "Debug 04_ecc",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/04_ecc",
+            "args": [],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "Build 04_ecc",
+            "miDebuggerPath": "/usr/bin/gdb"
+        },
+        {
+            "name": "Debug 05_x509_parse",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/05_x509_parse",
+            "args": [],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "Build 05_x509_parse",
+            "miDebuggerPath": "/usr/bin/gdb"
+        },
+        {
+            "name": "Debug 06_tls_client",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/06_tls_client",
+            "args": [],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "Build 06_tls_client",
+            "miDebuggerPath": "/usr/bin/gdb"
+        },
+        {
+            "name": "Debug 07_tls_mutual",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/07_tls_mutual",
+            "args": [],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "Build 07_tls_mutual",
+            "miDebuggerPath": "/usr/bin/gdb"
+        },
+        {
+            "name": "Debug 08_custom_bio",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/08_custom_bio",
+            "args": [],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "Build 08_custom_bio",
+            "miDebuggerPath": "/usr/bin/gdb"
+        },
+        {
+            "name": "Debug All (Rebuild)",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/01_hash",
+            "args": [],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "Build All",
+            "miDebuggerPath": "/usr/bin/gdb"
+        }
+    ]
+}

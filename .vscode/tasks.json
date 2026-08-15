@@ -1,0 +1,135 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Build 01_hash",
+            "type": "shell",
+            "command": "cmake",
+            "args": [
+                "--build", "${workspaceFolder}/build",
+                "--target", "01_hash"
+            ],
+            "group": "build",
+            "problemMatcher": ["$gcc"],
+            "detail": "Build 01_hash target"
+        },
+        {
+            "label": "Build 02_aes",
+            "type": "shell",
+            "command": "cmake",
+            "args": [
+                "--build", "${workspaceFolder}/build",
+                "--target", "02_aes"
+            ],
+            "group": "build",
+            "problemMatcher": ["$gcc"],
+            "detail": "Build 02_aes target"
+        },
+        {
+            "label": "Build 03_rsa",
+            "type": "shell",
+            "command": "cmake",
+            "args": [
+                "--build", "${workspaceFolder}/build",
+                "--target", "03_rsa"
+            ],
+            "group": "build",
+            "problemMatcher": ["$gcc"],
+            "detail": "Build 03_rsa target"
+        },
+        {
+            "label": "Build 04_ecc",
+            "type": "shell",
+            "command": "cmake",
+            "args": [
+                "--build", "${workspaceFolder}/build",
+                "--target", "04_ecc"
+            ],
+            "group": "build",
+            "problemMatcher": ["$gcc"],
+            "detail": "Build 04_ecc target"
+        },
+        {
+            "label": "Build 05_x509_parse",
+            "type": "shell",
+            "command": "cmake",
+            "args": [
+                "--build", "${workspaceFolder}/build",
+                "--target", "05_x509_parse"
+            ],
+            "group": "build",
+            "problemMatcher": ["$gcc"],
+            "detail": "Build 05_x509_parse target"
+        },
+        {
+            "label": "Build 06_tls_client",
+            "type": "shell",
+            "command": "cmake",
+            "args": [
+                "--build", "${workspaceFolder}/build",
+                "--target", "06_tls_client"
+            ],
+            "group": "build",
+            "problemMatcher": ["$gcc"],
+            "detail": "Build 06_tls_client target"
+        },
+        {
+            "label": "Build 07_tls_mutual",
+            "type": "shell",
+            "command": "cmake",
+            "args": [
+                "--build", "${workspaceFolder}/build",
+                "--target", "07_tls_mutual"
+            ],
+            "group": "build",
+            "problemMatcher": ["$gcc"],
+            "detail": "Build 07_tls_mutual target"
+        },
+        {
+            "label": "Build 08_custom_bio",
+            "type": "shell",
+            "command": "cmake",
+            "args": [
+                "--build", "${workspaceFolder}/build",
+                "--target", "08_custom_bio"
+            ],
+            "group": "build",
+            "problemMatcher": ["$gcc"],
+            "detail": "Build 08_custom_bio target"
+        },
+        {
+            "label": "Build All",
+            "type": "shell",
+            "command": "cmake",
+            "args": [
+                "--build", "${workspaceFolder}/build"
+            ],
+            "group": "build",
+            "problemMatcher": ["$gcc"],
+            "detail": "Build all targets"
+        },
+        {
+            "label": "Clean Build",
+            "type": "shell",
+            "command": "rm",
+            "args": [
+                "-rf", "${workspaceFolder}/build/*"
+            ],
+            "group": "build",
+            "problemMatcher": [],
+            "detail": "Clean build directory"
+        },
+        {
+            "label": "Configure CMake",
+            "type": "shell",
+            "command": "cmake",
+            "args": [
+                "-B", "${workspaceFolder}/build",
+                "-S", "${workspaceFolder}"
+            ],
+            "group": "build",
+            "problemMatcher": ["$gcc"],
+            "detail": "Configure CMake project"
+        }
+    ]
+}
