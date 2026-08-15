@@ -29,8 +29,6 @@
 #include "mbedtls/pk.h"
 #include "mbedtls/entropy.h"
 #include "mbedtls/ctr_drbg.h"
-#include "mbedtls/error.h"
-#include "mbedtls/platform.h"
 
 static void print_hex(const char *label, const unsigned char *data, size_t len)
 {

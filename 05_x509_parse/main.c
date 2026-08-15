@@ -41,13 +41,9 @@
 #include <stdio.h>
 #include <string.h>
 #include "mbedtls/x509_crt.h"
-#include "mbedtls/x509_csr.h"
 #include "mbedtls/pk.h"
 #include "mbedtls/entropy.h"
 #include "mbedtls/ctr_drbg.h"
-#include "mbedtls/error.h"
-#include "mbedtls/platform.h"
-#include "mbedtls/oid.h"
 
 /* 用于演示的自签名 CA 证书 (PEM 格式)
  * 这是一个为教学目的生成的测试证书，运行时动态生成 */

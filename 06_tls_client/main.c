@@ -39,7 +39,6 @@
 #include "mbedtls/entropy.h"
 #include "mbedtls/error.h"
 #include "mbedtls/debug.h"
-#include "mbedtls/platform.h"
 #include "mbedtls/x509_crt.h"
 #include "psa/crypto.h"
 

@@ -21,7 +21,6 @@
 #include <string.h>
 #include "mbedtls/md.h"
 #include "mbedtls/sha256.h"
-#include "mbedtls/platform.h"
 
 /* 辅助函数：打印十六进制 */
 static void print_hex(const char *label, const unsigned char *data, size_t len)

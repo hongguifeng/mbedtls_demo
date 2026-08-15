@@ -35,8 +35,6 @@
 #include "mbedtls/error.h"
 #include "mbedtls/x509_crt.h"
 #include "mbedtls/pk.h"
-#include "mbedtls/debug.h"
-#include "mbedtls/platform.h"
 #include "psa/crypto.h"
 
 /* 共享证书数据 */

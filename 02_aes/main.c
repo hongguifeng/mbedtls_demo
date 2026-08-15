@@ -26,9 +26,6 @@
 #include "mbedtls/aes.h"
 #include "mbedtls/gcm.h"
 #include "mbedtls/cipher.h"
-#include "mbedtls/platform.h"
-#include "mbedtls/entropy.h"
-#include "mbedtls/ctr_drbg.h"
 
 static void print_hex(const char *label, const unsigned char *data, size_t len)
 {
