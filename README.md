@@ -58,6 +58,7 @@ mbedtls_demo/
   - [7.1 从单体到模块化：tf-psa-crypto 拆分](#71-从单体到模块化tf-psa-crypto-拆分)
   - [7.2 目录结构对比](#72-目录结构对比)
   - [7.3 构建系统变化](#73-构建系统变化)
+  - [7.4 3.x → 4.x API 兼容性](#74-3x--4x-api-兼容性)
 - [八、PSA Crypto API 深入 (4.2)](#八psa-crypto-api-深入-42)
   - [8.1 PSA 设计哲学](#81-psa-设计哲学)
   - [8.2 密钥管理模型](#82-密钥管理模型)
@@ -710,7 +711,7 @@ mbedTLS 3.x (单体):                    mbedTLS 4.x (模块化):
 | 内容 | 3.x 位置 | 4.x 位置 |
 |------|----------|----------|
 | PSA 头文件 | `include/psa/crypto.h` | `tf-psa-crypto/include/psa/crypto.h` |
-| Legacy 密码头文件 | `include/mbedtls/aes.h` | `tf-psa-crypto/include/mbedtls/aes.h` |
+| Legacy 密码头文件 | `include/mbedtls/aes.h`（公开） | `tf-psa-crypto/drivers/builtin/include/mbedtls/private/aes.h`（**私有**，不可依赖，见 7.4） |
 | TLS/X.509 头文件 | `include/mbedtls/ssl.h` | `include/mbedtls/ssl.h`（不变） |
 | 密码实现 | `library/aes.c` | `tf-psa-crypto/drivers/builtin/src/aes.c` |
 | PSA 核心 | `library/psa_crypto.c` | `tf-psa-crypto/core/crypto.c` |
@@ -738,6 +739,57 @@ target_link_libraries(my_app tfpsacrypto)
 # 4.x - 完整 TLS
 target_link_libraries(my_app mbedtls mbedx509 tfpsacrypto)
 ```
+
+### 7.4 3.x → 4.x API 兼容性
+
+**结论：不完全兼容。** 4.0 是一个**破坏性（breaking）大版本**，官方明确说明与 3.x 不兼容，
+需要修改代码才能迁移（官方迁移指南：`docs/4.0-migration-guide.md`）。
+
+#### 主要变化
+
+**1. 大部分 legacy 密码学 API 被删除**（最大的坑）
+
+- `mbedtls/aes.h`、`mbedtls/rsa.h`、`mbedtls/ecp.h`、`mbedtls/cipher.h`、
+  `mbedtls/md.h`（legacy 版）、`mbedtls/sha256.h`、`mbedtls/pk.h`（legacy 版）等头文件
+  **不再公开提供**，被移到了 `tf-psa-crypto/drivers/builtin/include/mbedtls/private/`
+  （私有头文件，官方声明可能随时移除或修改，不可依赖）
+- 官方要求改用 **PSA API**：`psa/crypto.h`
+  （`psa_hash_compute`、`psa_cipher_encrypt`、`psa_aead_encrypt`、`psa_sign_message` 等）
+- 配置宏从 `MBEDTLS_RSA_C`、`MBEDTLS_AES_C` 等改为 `PSA_WANT_xxx`
+
+**2. TLS / X.509 API 大部分保留，但有调整**
+
+- `mbedtls/ssl.h`、`mbedtls/x509*.h` 仍在，常用接口（`mbedtls_ssl_*`、`mbedtls_x509_crt_*`）基本可用
+- 删除的函数：
+  - `mbedtls_ssl_conf_rng()`（现在强制使用 PSA RNG）
+  - `mbedtls_ssl_conf_min_version()` / `mbedtls_ssl_conf_max_version()`
+    （改用 `mbedtls_ssl_conf_min_tls_version()` / `mbedtls_ssl_conf_max_tls_version()`）
+  - `mbedtls_ssl_conf_curves()`、`mbedtls_ssl_conf_sig_hashes()`（改用 `mbedtls_ssl_conf_sig_algs()`）
+  - DHE 相关函数（TLS 1.2 不再支持 DHE）
+- 很多 legacy 错误码被移除，改为返回 PSA 错误码
+
+**3. 构建系统**
+
+- 只支持 CMake，Makefile / Visual Studio 工程文件已移除
+
+**4. 兼容辅助**
+
+- 提供 `mbedtls/compat-3-crypto.h`：把部分 3.x 错误码映射到 PSA 错误码，方便过渡
+- 3.x 里的 `compat-2.x.h`（2.x 兼容层）在 4.x 中被删除
+
+#### 对本教程示例的影响
+
+| 3.x 示例 | 使用的 legacy API | 4.x 迁移方式 |
+|----------|-------------------|--------------|
+| 01_hash | `mbedtls_md_*` | `psa_hash_compute()`（示例09） |
+| 02_aes | `mbedtls_cipher_*` / `mbedtls_aes_*` | `psa_cipher_*`（示例10）/ `psa_aead_*`（示例11） |
+| 03_rsa | `mbedtls_rsa_*` / `mbedtls_pk_*` | `psa_sign_message()` / `psa_verify_message()`（示例13） |
+| 04_ecc | `mbedtls_ecp_*` / `mbedtls_ecdsa_*` | `psa_import_key()` + `psa_sign_message()`（示例13/15） |
+| 05_x509_parse | `mbedtls_x509_crt_*` | 基本可直接使用（X.509 API 保留） |
+| 06~08 TLS | `mbedtls_ssl_*` | 基本可直接使用，注意上述被删除的函数 |
+
+> **迁移建议**：如果代码只用到 TLS/X.509 接口，4.x 基本平滑（少量函数改名/删除）；
+> 如果直接调用了 legacy 密码学 API（AES/MD/RSA/ECC 等），则必须迁移到 PSA API。
 
 ---
 
