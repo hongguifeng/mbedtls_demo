@@ -5,10 +5,10 @@
 # 用法：
 #   ./build.sh qemu        # 先构建（产物在 build-qemu/）
 #   ./run_qemu.sh          # 仿真运行，串口输出直接打到终端
-#   ./run_qemu.sh --debug  # 调试模式：-S 让 CPU 停在复位处，并在 :1234（可用
-#                          # QEMU_GDB_PORT 覆盖）开 GDB stub，等 GDB attach 后才
-#                          # 开始（.vscode/launch.json 的 "Debug 16 Embedded
-#                          # (QEMU)" preLaunchTask 用此模式）
+#   ./run_qemu.sh --debug  # 调试模式（分离启动，本脚本立即退出）：-S 让 CPU 停在
+#                          # 复位处、:12349（可用 QEMU_GDB_PORT 覆盖）开 GDB stub，
+#                          # 串口 → build-qemu/qemu_debug.log；.vscode/launch.json
+#                          # 的 "Debug 16 Embedded (QEMU)" preLaunchTask 用此模式
 #
 # 退出：固件是 FreeRTOS 调度器，永不返回。
 #   - Ctrl+C            退出 QEMU
@@ -33,7 +33,7 @@ fi
 #          与 .vscode/launch.json 的 miDebuggerServerAddress 保持一致）；
 #          -S 让 CPU 停在复位处，等 GDB attach 并 continue 后才开始跑。
 #          没有它固件几秒内就跑完，attach 时已经错过了入口。
-GDB_PORT=${QEMU_GDB_PORT:-1234}
+GDB_PORT=${QEMU_GDB_PORT:-12349}
 DEBUG_FLAGS=()
 case "${1:-}" in
     --debug|-d)

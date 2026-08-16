@@ -162,7 +162,7 @@
                 "focus": true,
                 "group": "qemu"
             },
-            "detail": "Start 09 firmware in QEMU mps2-an385 with GDB stub (:1234, CPU held at reset until GDB attaches). Also used as preLaunchTask for Debug 09 Embedded (QEMU)"
+            "detail": "Start 09 firmware in detached QEMU mps2-an385 (GDB stub :1234, CPU held at reset; serial → build-qemu/qemu_debug.log), then exit. preLaunchTask for Debug 09 Embedded (QEMU)"
         },
         {
             "label": "Run 16 Embedded (QEMU)",
@@ -179,7 +179,7 @@
                 "focus": true,
                 "group": "qemu"
             },
-            "detail": "Start 16 firmware in QEMU mps2-an385 with GDB stub (:1234, CPU held at reset until GDB attaches). Also used as preLaunchTask for Debug 16 Embedded (QEMU)"
+            "detail": "Start 16 firmware in detached QEMU mps2-an385 (GDB stub :12349, CPU held at reset; serial → build-qemu/qemu_debug.log), then exit. preLaunchTask for Debug 16 Embedded (QEMU)"
         },
         {
             "label": "Stop Embedded QEMU",
@@ -190,7 +190,7 @@
                 "pkill -f 'qemu-system-arm.*mps2-an385' 2>/dev/null || true"
             ],
             "problemMatcher": [],
-            "detail": "Terminate the mps2-an385 QEMU instance (used as postDebugTask)"
+            "detail": "Terminate all mps2-an385 QEMU instances (used as postDebugTask)"
         }
     ],
     "inputs": [
