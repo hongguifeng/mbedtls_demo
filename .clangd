@@ -1,0 +1,27 @@
+# clangd 项目配置
+#
+# 背景：clangd 默认从源文件所在目录逐级向上查找 compile_commands.json
+# （并额外检查各层的 build/ 子目录）。两个嵌入式示例的交叉编译产物在
+# build-arm/ 下（不是 build/），默认搜索找不到，会错误地回退到上层
+# mbedtls_36/build 或 mbedtls_42/build 的原生编译数据库。
+#
+# 下面的规则让这两个目录下的代码改用各自 build-arm/ 里的
+# compile_commands.json（arm-none-eabi-gcc 交叉编译命令）。
+# 其余目录不受影响，仍走默认搜索。
+
+# 另外：交叉编译命令带 -nostdsysteminc，而 arm-none-eabi-gcc 的 newlib
+# 头文件目录（arm-none-eabi/include）是 gcc 隐式加入、不会写进
+# compile_commands.json 的，clangd 无法自动推断，需显式补上，
+# 否则 stdio.h / string.h 等会报 "file not found"。
+
+If:
+  PathMatch: mbedtls_36/09_embedded_stm32/.*
+CompileFlags:
+  CompilationDatabase: mbedtls_36/09_embedded_stm32/build-arm
+  Add: [-isystem, /home/hong/code/gcc-arm-none-eabi-10-2020-q4-major/arm-none-eabi/include]
+---
+If:
+  PathMatch: mbedtls_42/16_embedded_stm32/.*
+CompileFlags:
+  CompilationDatabase: mbedtls_42/16_embedded_stm32/build-arm
+  Add: [-isystem, /home/hong/code/gcc-arm-none-eabi-10-2020-q4-major/arm-none-eabi/include]
