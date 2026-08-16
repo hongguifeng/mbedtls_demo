@@ -153,7 +153,7 @@
             "command": "bash",
             "args": [
                 "-c",
-                "cd \"${workspaceFolder}/mbedtls_36/09_embedded_stm32\" && ./run_qemu.sh"
+                "cd \"${workspaceFolder}/mbedtls_36/09_embedded_stm32\" && ./run_qemu.sh --debug"
             ],
             "problemMatcher": {
                 "owner": "arm-none-eabi",
@@ -174,7 +174,7 @@
                 "focus": true,
                 "group": "qemu"
             },
-            "detail": "Simulate 09 firmware in QEMU mps2-an385 (Ctrl+C exits; GDB stub on :1234)"
+            "detail": "Start 09 firmware in QEMU mps2-an385 with GDB stub (:1234, CPU held at reset until GDB attaches). Also used as preLaunchTask for Debug 09 Embedded (QEMU)"
         },
         {
             "label": "Run 16 Embedded (QEMU)",
@@ -182,7 +182,7 @@
             "command": "bash",
             "args": [
                 "-c",
-                "cd \"${workspaceFolder}/mbedtls_42/16_embedded_stm32\" && ./run_qemu.sh"
+                "cd \"${workspaceFolder}/mbedtls_42/16_embedded_stm32\" && ./run_qemu.sh --debug"
             ],
             "problemMatcher": {
                 "owner": "arm-none-eabi",
@@ -203,7 +203,7 @@
                 "focus": true,
                 "group": "qemu"
             },
-            "detail": "Simulate 16 firmware in QEMU mps2-an385 (Ctrl+C exits; GDB stub on :1234)"
+            "detail": "Start 16 firmware in QEMU mps2-an385 with GDB stub (:1234, CPU held at reset until GDB attaches). Also used as preLaunchTask for Debug 16 Embedded (QEMU)"
         },
         {
             "label": "Stop Embedded QEMU",
