@@ -25,7 +25,14 @@ set(CMAKE_SIZE         ${CROSS_PREFIX}size)
 set(CMAKE_TRY_COMPILE_TARGET_TYPE STATIC_LIBRARY)
 
 # 目标架构相关编译选项
-set(MCU_FLAGS "-mcpu=cortex-m4 -mthumb -mfpu=fpv4-sp-d16 -mfloat-abi=hard")
+# QEMU_EMU=ON（由 build.sh qemu 模式传入 -DQEMU_EMU=ON）：
+#   目标为 QEMU mps2-an385 的 Cortex-M3 —— 无 FPU，必须 soft-float，
+#   且 FreeRTOS 端口换成 ARM_CM3（见 CMakeLists.txt）。
+if(QEMU_EMU)
+    set(MCU_FLAGS "-mcpu=cortex-m3 -mthumb")
+else()
+    set(MCU_FLAGS "-mcpu=cortex-m4 -mthumb -mfpu=fpv4-sp-d16 -mfloat-abi=hard")
+endif()
 
 set(CMAKE_C_FLAGS_INIT   "${MCU_FLAGS} -ffunction-sections -fdata-sections -fno-common")
 set(CMAKE_ASM_FLAGS_INIT "${MCU_FLAGS}")

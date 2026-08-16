@@ -14,14 +14,14 @@ mbedTLS  : v4.2.0（PSA Crypto API，仅链接 tfpsacrypto）
 
 === 裁剪后的体积（arm-none-eabi-size app.elf）===
    text    data     bss     dec     hex filename
-  47364     132  196476  243972   3b904 app.elf
+  49760     132  196476  246368   3c260 app.elf
 
 Flash 实际占用（app.map）:
   .isr_vector  0x13c   (316 B)
-  .text        0xa914  (~43 KB)
-  .rodata      0xeb4   (~3.7 KB)
+  .text        0xb19c  (~45 KB)
+  .rodata      0xf88   (~3.9 KB)
   .data 初值   0x84    (132 B)
-  Flash 合计   ≈ 47 KB / 1024 KB（约 4.6%）
+  Flash 合计   ≈ 49 KB / 1024 KB（约 4.8%）
 
 RAM 实际占用:
   .data        0x84     (132 B)
@@ -30,10 +30,10 @@ RAM 实际占用:
   （size 报告的 bss=196476 包含了链接脚本中预留到 RAM 末尾的
     ._heap 区域，实际静态 .bss 以 app.map 为准）
 
-各库贡献（未裁剪前静态库 text+data）:
-  libtfpsacrypto.a : text=74352 data=28   （裁剪后实际链入 ~43 KB，
+各库贡献（未裁剪前静态库 text+data / 实际链入 .text）:
+  libtfpsacrypto.a : text=74352 data=28   （实际链入 ~31 KB，
                                             --gc-sections 丢弃未引用函数）
-  libfreertos.a    : text=13591 data=8    （含 port.c / heap_4.c）
+  libfreertos.a    : text=13591 data=8    （实际链入 ~6 KB，含 port.c / heap_4.c）
 
 对照：
 - 与 3.6 示例（09_embedded_stm32，text=97 KB）相比，4.2 的 PSA_WANT_*
@@ -69,3 +69,32 @@ ECDSA verify OK
   （MBEDTLS_THREADING_C + MBEDTLS_THREADING_ALT，9 个回调）。
 - 熵源：MBEDTLS_PSA_DRIVER_GET_ENTROPY + mbedtls_platform_get_entropy()
   读取 STM32F4 硬件 RNG（RNG_DRTR）。
+
+====================================================================
+QEMU 仿真目标（./build.sh qemu && ./run_qemu.sh）
+====================================================================
+
+目标     : QEMU -M mps2-an385（ARM MPS2 AN385，Cortex-M3，无 FPU，25 MHz）
+           "Flash" = SSRAM1 @ 0x00000000（armv7m_load_kernel 加载 ELF 处）
+           RAM     = SSRAM2&3 @ 0x20000000（只用前 192 KB，与真机对齐）
+           UART    = CMSDK APB UART @ 0x40004000（→ -nographic 控制台）
+RTOS     : FreeRTOS-Kernel V11.3.0（GCC/ARM_CM3 port + heap_4，无 FPU）
+构建命令 : ./build.sh qemu   （产物 build-qemu/app.elf / app.bin / app.hex）
+运行命令 : ./run_qemu.sh
+
+裁剪后体积（arm-none-eabi-size build-qemu/app.elf）:
+   text    data     bss     dec     hex filename
+  49184     144  196464  245792   3c020 app.elf
+
+Flash（VMA 0x0 起）: .isr_vector 192 B + .text ~44.7 KB + .rodata ~3.9 KB
+RAM（0x20000000 起）: .data 144 B + .bss ~74 KB（同真机，FreeRTOS 堆 64 KB）
+比 STM32 目标略大（49184 vs 47364 B text），主因 Cortex-M3 无 FPU：
+ECDSA 大数运算退化为纯软件实现 + ARM_CM3 port 差异。
+
+QEMU 串口输出与真机完全一致（SHA-256 / AES-CBC 逐字节相同）；
+唯一差别是 ECDSA 签名值：MPS2 无硬件 RNG，port/qemu_hw.c 用
+编译期固定种子的软件 xorshift128+ 顶替熵源 → 每次运行签名相同
+（可复现，便于比对）。真机（STM32F4 硬件 RNG）每次签名不同。
+
+注意：QEMU 模式仅用于仿真验证密码逻辑与 FreeRTOS 调度行为；
+固定种子 PRNG 只适合演示，生产固件必须使用硬件 RNG。

@@ -32,6 +32,10 @@
 
 /* 平台适配层（platform_glue.c）：注册 FreeRTOS 互斥锁/条件变量回调 */
 void mbedtls_platform_setup_threading(void);
+/* 控制台串行化（多任务 printf 防交错，见 platform_glue.c 的 _write）*/
+void mbedtls_console_lock_setup(void);
+void mbedtls_console_lock(void);
+void mbedtls_console_unlock(void);
 
 /* =====================================================================
  * 工具函数
@@ -77,7 +81,7 @@ static void print_psa_error(const char *what, psa_status_t status)
     if (status == PSA_SUCCESS) {
         return;
     }
-    printf("[FAIL] %s: -0x%04Lx (%s)\r\n", what,
+    printf("[FAIL] %s: -0x%04lx (%s)\r\n", what,
            (unsigned long)(-status), psa_err_name(status));
 }
 
@@ -87,6 +91,7 @@ static void print_psa_error(const char *what, psa_status_t status)
 static void hash_task(void *arg)
 {
     (void)arg;
+    mbedtls_console_lock();          /* 本任务输出段串行化 */
     printf("\r\n--- [hash_task] PSA SHA-256 ---\r\n");
 
     const char *msg = "mbedtls on STM32F407 + FreeRTOS";
@@ -102,6 +107,7 @@ static void hash_task(void *arg)
         print_hex("SHA-256: ", digest, digest_len);
     }
 
+    mbedtls_console_unlock();
     vTaskDelete(NULL);
 }
 
@@ -111,6 +117,7 @@ static void hash_task(void *arg)
 static void aes_task(void *arg)
 {
     (void)arg;
+    mbedtls_console_lock();          /* 本任务输出段串行化 */
     printf("\r\n--- [aes_task] PSA AES-128-CBC ---\r\n");
 
     /* 16 字节密钥 + 16 字节 IV（教学用固定值；生产环境应随机生成）*/
@@ -127,60 +134,116 @@ static void aes_task(void *arg)
     const char *plaintext = "Hello, embedded!";   /* 恰好 16 字节 */
     size_t plen = strlen(plaintext);
 
-    /* PSA 的 CBC 把 IV 作为"输入/输出"的一部分：
-     *   加密输入 = IV || 明文，输出 = IV || 密文
-     *   解密输入 = IV || 密文，输出 = IV || 明文 */
-    uint8_t in_buf[16 + 64];
-    uint8_t out_buf[16 + 64];
-    memcpy(in_buf, iv, 16);
-    memcpy(in_buf + 16, plaintext, plen);
+    /* PSA cipher 的 IV 用法（4.2 的正确姿势）：
+     * - 一次性 psa_cipher_encrypt(key, alg, pt, len, ...) 没有 IV 参数：
+     *   库内部自己生成随机 IV，输出 = 随机 IV || 密文，输入必须是
+     *   纯明文（不要手动把 IV 拼到前面）。
+     * - 要使用固定 IV（如本示例），用多步操作：
+     *   encrypt_setup/decrypt_setup -> psa_cipher_set_iv()
+     *   -> psa_cipher_update() -> psa_cipher_finish()，
+     *   update/finish 的输出是纯密文/纯明文，不含 IV。
+     * 本示例固定 IV 使得密文可复现（与 openssl enc 参考值一致）。*/
 
     /* 1. 导入 AES 密钥（PSA 密钥句柄）*/
     psa_key_attributes_t attrs = psa_key_attributes_init();
     psa_set_key_type(&attrs, PSA_KEY_TYPE_AES);
     psa_set_key_bits(&attrs, 128);
+    /* 用法标志 + 算法策略缺一不可：4.x 中 usage setter 只是把标志
+     * 交集进默认全零的策略；若不调 psa_set_key_algorithm()，导入/生成的
+     * 密钥策略里没有任何算法，执行加密时会返回 PSA_ERROR_NOT_PERMITTED。*/
     psa_set_key_usage_flags(&attrs, PSA_KEY_USAGE_ENCRYPT | PSA_KEY_USAGE_DECRYPT);
+    psa_set_key_algorithm(&attrs, PSA_ALG_CBC_NO_PADDING);
 
     mbedtls_svc_key_id_t key_id = PSA_KEY_ID_NULL;
     psa_status_t status = psa_import_key(&attrs, key, sizeof(key), &key_id);
     if (status != PSA_SUCCESS) {
         print_psa_error("psa_import_key", status);
+        mbedtls_console_unlock();
         vTaskDelete(NULL);
         return;
     }
 
-    /* 2. 加密：输入 IV||明文，输出 IV||密文 */
-    size_t out_len = 0;
-    status = psa_cipher_encrypt(key_id, PSA_ALG_CBC_NO_PADDING,
-                                in_buf, 16 + plen,
-                                out_buf, sizeof(out_buf), &out_len);
-    if (status != PSA_SUCCESS) {
-        print_psa_error("psa_cipher_encrypt", status);
-        goto cleanup;
-    }
-    /* 密文 = 输出的后 plen 字节（前 16 字节是回显的 IV）*/
-    print_hex("Ciphertext: ", out_buf + 16, out_len - 16);
+    /* 2. 加密（多步 + 固定 IV）：输出为纯密文 */
+    psa_cipher_operation_t enc_op = psa_cipher_operation_init();
+    uint8_t ciphertext[64];
+    size_t ct_len = 0;
+    size_t part_len = 0;   /* finish 单步产出的字节数（update/finish 不累加）*/
 
-    /* 3. 解密：输入 IV||密文，输出 IV||明文 */
-    uint8_t dec_buf[16 + 64];
-    size_t dec_len = 0;
-    status = psa_cipher_decrypt(key_id, PSA_ALG_CBC_NO_PADDING,
-                                out_buf, out_len,
-                                dec_buf, sizeof(dec_buf), &dec_len);
+    status = psa_cipher_encrypt_setup(&enc_op, key_id, PSA_ALG_CBC_NO_PADDING);
     if (status != PSA_SUCCESS) {
-        print_psa_error("psa_cipher_decrypt", status);
+        print_psa_error("psa_cipher_encrypt_setup", status);
         goto cleanup;
     }
-    /* 明文 = 输出的后 plen 字节 */
-    if (dec_len >= 16 + plen &&
-        memcmp(dec_buf + 16, plaintext, plen) == 0) {
-        printf("AES round-trip OK: %.*s\r\n", (int)plen, dec_buf + 16);
+    /* 固定 IV；若不想固定，可改用 psa_cipher_generate_iv() 生成随机 IV */
+    status = psa_cipher_set_iv(&enc_op, iv, 16);
+    if (status != PSA_SUCCESS) {
+        print_psa_error("psa_cipher_set_iv(encrypt)", status);
+        psa_cipher_abort(&enc_op);
+        goto cleanup;
+    }
+    status = psa_cipher_update(&enc_op, (const uint8_t *)plaintext, plen,
+                               ciphertext, sizeof(ciphertext), &ct_len);
+    if (status != PSA_SUCCESS) {
+        print_psa_error("psa_cipher_update(encrypt)", status);
+        psa_cipher_abort(&enc_op);
+        goto cleanup;
+    }
+    /* finish 的 *output_length 只表示"本次调用新产生的字节数"，
+     * 内部会先把它清零（不累加之前的量），CBC_NO_PADDING 下 update 已输出
+     * 全部密文，finish 通常产出 0 字节。故用独立变量接收后再累加。*/
+    part_len = 0;
+    status = psa_cipher_finish(&enc_op, ciphertext + ct_len,
+                               sizeof(ciphertext) - ct_len, &part_len);
+    if (status != PSA_SUCCESS) {
+        print_psa_error("psa_cipher_finish(encrypt)", status);
+        psa_cipher_abort(&enc_op);
+        goto cleanup;
+    }
+    ct_len += part_len;
+    print_hex("Ciphertext: ", ciphertext, ct_len);
+
+    /* 3. 解密（多步 + 固定 IV）：输出为纯明文 */
+    psa_cipher_operation_t dec_op = psa_cipher_operation_init();
+    uint8_t dec_buf[64];
+    size_t dec_len = 0;
+
+    status = psa_cipher_decrypt_setup(&dec_op, key_id, PSA_ALG_CBC_NO_PADDING);
+    if (status != PSA_SUCCESS) {
+        print_psa_error("psa_cipher_decrypt_setup", status);
+        goto cleanup;
+    }
+    status = psa_cipher_set_iv(&dec_op, iv, 16);
+    if (status != PSA_SUCCESS) {
+        print_psa_error("psa_cipher_set_iv(decrypt)", status);
+        psa_cipher_abort(&dec_op);
+        goto cleanup;
+    }
+    status = psa_cipher_update(&dec_op, ciphertext, ct_len,
+                               dec_buf, sizeof(dec_buf), &dec_len);
+    if (status != PSA_SUCCESS) {
+        print_psa_error("psa_cipher_update(decrypt)", status);
+        psa_cipher_abort(&dec_op);
+        goto cleanup;
+    }
+    /* 同加密侧：finish 的长度用独立变量接收再累加 */
+    part_len = 0;
+    status = psa_cipher_finish(&dec_op, dec_buf + dec_len,
+                               sizeof(dec_buf) - dec_len, &part_len);
+    if (status != PSA_SUCCESS) {
+        print_psa_error("psa_cipher_finish(decrypt)", status);
+        psa_cipher_abort(&dec_op);
+        goto cleanup;
+    }
+    dec_len += part_len;
+    if (dec_len == plen && memcmp(dec_buf, plaintext, plen) == 0) {
+        printf("AES round-trip OK: %.*s\r\n", (int)plen, dec_buf);
     } else {
         printf("[FAIL] AES round-trip mismatch\r\n");
     }
 
 cleanup:
     psa_destroy_key(key_id);
+    mbedtls_console_unlock();
     vTaskDelete(NULL);
 }
 
@@ -190,19 +253,23 @@ cleanup:
 static void ecc_task(void *arg)
 {
     (void)arg;
+    mbedtls_console_lock();          /* 本任务输出段串行化 */
     printf("\r\n--- [ecc_task] PSA ECDSA P-256 ---\r\n");
 
     /* 1. 生成 P-256 密钥对（PSA 内部自动从硬件 RNG 取随机数）*/
     psa_key_attributes_t attrs = psa_key_attributes_init();
     psa_set_key_type(&attrs, PSA_KEY_TYPE_ECC_KEY_PAIR(PSA_ECC_FAMILY_SECP_R1));
     psa_set_key_bits(&attrs, 256);
+    /* 同上：必须把签名算法写进策略，否则 psa_sign_message 报 NOT_PERMITTED */
     psa_set_key_usage_flags(&attrs, PSA_KEY_USAGE_SIGN_MESSAGE |
                             PSA_KEY_USAGE_VERIFY_MESSAGE);
+    psa_set_key_algorithm(&attrs, PSA_ALG_ECDSA(PSA_ALG_SHA_256));
 
     mbedtls_svc_key_id_t key_id = PSA_KEY_ID_NULL;
     psa_status_t status = psa_generate_key(&attrs, &key_id);
     if (status != PSA_SUCCESS) {
         print_psa_error("psa_generate_key", status);
+        mbedtls_console_unlock();
         vTaskDelete(NULL);
         return;
     }
@@ -234,6 +301,7 @@ static void ecc_task(void *arg)
 
 cleanup:
     psa_destroy_key(key_id);
+    mbedtls_console_unlock();
     vTaskDelete(NULL);
 }
 
@@ -250,20 +318,42 @@ int main(void)
      * 可能永远不刷新。这里设为无缓冲，printf 立即发送。*/
     setvbuf(stdout, NULL, _IONBF, 0);
 
+#ifdef QEMU_EMU
+    printf("\r\n========================================\r\n");
+    printf(" mbedTLS 4.2 + QEMU mps2-an385 (Cortex-M3)\r\n");
+    printf(" PSA Crypto API embedded demo\r\n");
+    printf("========================================\r\n");
+#else
     printf("\r\n========================================\r\n");
     printf(" mbedTLS 4.2 + STM32F407 + FreeRTOS\r\n");
     printf(" PSA Crypto API embedded demo\r\n");
     printf("========================================\r\n");
+#endif
 
     /* 2. 注册 FreeRTOS 互斥锁/条件变量（mbedTLS 线程安全）*/
     mbedtls_platform_setup_threading();
 
-    /* 3. 创建任务 */
+    /* 2b. 控制台串行化：三个任务并发 printf 时防止输出交错 */
+    mbedtls_console_lock_setup();
+
+    /* 3. 初始化 PSA Crypto core（4.x 必须显式调用一次：
+     *    依次初始化驱动包装器 / 密钥槽位 / RNG / 事务子系统；
+     *    漏掉它会导致 psa_import_key / psa_generate_key 等
+     *    返回 PSA_ERROR_BAD_STATE）*/
+    psa_status_t init_status = psa_crypto_init();
+    if (init_status != PSA_SUCCESS) {
+        printf("[FATAL] psa_crypto_init: -0x%04lX\r\n",
+               (unsigned long)(-init_status));
+        for (;;) {
+        }
+    }
+
+    /* 4. 创建任务 */
     xTaskCreate(hash_task, "hash", 512, NULL, 2, NULL);
     xTaskCreate(aes_task,  "aes",  512, NULL, 2, NULL);
     xTaskCreate(ecc_task,  "ecc",  1024, NULL, 2, NULL);
 
-    /* 4. 启动调度器 */
+    /* 5. 启动调度器 */
     vTaskStartScheduler();
 
     /* 不应到达这里 */

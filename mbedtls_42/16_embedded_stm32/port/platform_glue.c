@@ -28,14 +28,74 @@
 #include "stm32f4_hw.h"
 
 /* =====================================================================
- * 1. newlib 重定向：printf -> USART1
+ * 1. newlib 重定向：printf -> 串口（带控制台串行化）
+ *
+ * 三个任务并发 printf，若无保护会输出交错。这里用一把 FreeRTOS 互斥锁
+ * 串行化控制台访问：
+ *   - _write() 每次调用（= 一行/一段 printf 的内容）持锁；
+ *   - main.c 里每个任务整体再持锁一次（mbedtls_console_lock/unlock），
+ *     使同一任务的输出作为一个连续块出现。
+ * 持锁者是当前任务时 _write 直接复用（可重入），不会死锁。
  * ===================================================================== */
+
+static SemaphoreHandle_t console_mux   = NULL;
+static TaskHandle_t      console_owner = NULL;
+
+void mbedtls_console_lock_setup(void)
+{
+    if (console_mux == NULL) {
+        console_mux = xSemaphoreCreateMutex();
+    }
+}
+
+/* 获取控制台锁。返回 1 = 本次调用新拿到了锁；
+ * 返回 0 = 无需锁（中断上下文/锁未建）或当前任务已持有（可重入）。 */
+static int console_acquire(void)
+{
+    /* 中断上下文中不能拿互斥锁，直接输出；调度器未启动时
+     * （main 里的横幅）xSemaphoreTake 会短暂阻塞到调度器启动，无害 */
+    if (console_mux == NULL || xPortIsInsideInterrupt()) {
+        return 0;
+    }
+    TaskHandle_t self = xTaskGetCurrentTaskHandle();
+    if (console_owner == self) {
+        return 0;                     /* 本任务已持有（任务级锁内再 printf）*/
+    }
+    xSemaphoreTake(console_mux, portMAX_DELAY);
+    console_owner = self;
+    return 1;
+}
+
+static void console_release(int took)
+{
+    if (!took) {
+        return;
+    }
+    console_owner = NULL;
+    if (xSemaphoreGive(console_mux)) {
+        portYIELD();                  /* 唤醒了更高等级等待者，主动让出 */
+    }
+}
+
+/* 任务级控制台锁：包住整个任务输出段（见 main.c 各 task）*/
+void mbedtls_console_lock(void)
+{
+    (void)console_acquire();
+}
+
+void mbedtls_console_unlock(void)
+{
+    console_release(1);               /* 与 lock() 严格配对使用 */
+}
+
 int _write(int fd, const char *buf, int len)
 {
     (void)fd;
+    int took = console_acquire();
     for (int i = 0; i < len; i++) {
         hw_uart_putc(buf[i]);
     }
+    console_release(took);            /* 只释放本次调用新拿到的锁 */
     return len;
 }
 

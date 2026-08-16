@@ -1642,25 +1642,33 @@ mbedtls_ecdsa_write_signature(&eckey, MBEDTLS_MD_SHA256, ...);     /* L3 签名 
 mbedtls_42/16_embedded_stm32/
 ├── arm-none-eabi.cmake          # 工具链文件（与 3.6 相同）
 ├── CMakeLists.txt               # tfpsacrypto + FreeRTOS + app.elf
-├── build.sh
+├── build.sh                     # 默认 STM32F407VE；./build.sh qemu → QEMU mps2-an385
+├── run_qemu.sh                  # 一键 QEMU 仿真运行（mps2-an385，Cortex-M3）
 ├── main.c                       # 3 个任务：PSA 哈希 / PSA AES-CBC / PSA ECDSA
 └── port/
     ├── startup_stm32f4.s / stm32f407ve.ld / FreeRTOSConfig.h / stm32f4_hw.c/.h
     ├── threading_alt.h          # mutex + condition_variable 两个类型
     ├── psa_user_config_stm32.h  # 4.2 裁剪配置（PSA_WANT_* 级）
-    └── platform_glue.c          # _write / SysTick / 熵源 / 9 个线程回调
+    ├── platform_glue.c          # _write / SysTick / 熵源 / 9 个线程回调
+    ├── startup_qemu.s           # QEMU mps2-an385 启动代码（Cortex-M3，无 FPU）
+    ├── qemu_mps2.ld             # CMSDK 内存布局：RAM@0x20000000 / APB UART@0x40004000
+    └── qemu_hw.c                # QEMU 硬件层：SystemInit / UART0 / RNG（熵源）
 ```
+
+> **QEMU 仿真**：`./build.sh && ./run_qemu.sh`（或 `./build.sh qemu && ./run_qemu.sh`）。
+> mps2-an385 板是 Cortex-M3（无硬件 FPU，25 MHz），所以 QEMU 构建切到
+> FreeRTOS `GCC/ARM_CM3` 端口并禁用 FPU 相关编译选项；串口走 CMSDK APB UART0。
 
 与 3.6 示例的 API 对照：
 
 | 操作 | 3.6 (Legacy) | 4.2 (PSA) |
 |------|-------------|-----------|
 | SHA-256 | `mbedtls_sha256()` | `psa_hash_compute(PSA_ALG_SHA_256, ...)` |
-| AES-CBC | `mbedtls_aes_crypt_cbc()`（IV 独立参数，会被原地修改） | `psa_cipher_encrypt(key_id, PSA_ALG_CBC_NO_PADDING, IV‖明文, ...)`（**IV 随数据走**：输入 IV‖明文，输出 IV‖密文） |
+| AES-CBC | `mbedtls_aes_crypt_cbc()`（IV 独立参数，会被原地修改） | 一次性接口 `psa_cipher_encrypt` **没有 IV 参数**（库内部生成随机 IV，输出 random IV‖密文）；要用固定 IV 必须走多段接口：`psa_cipher_encrypt_setup()` → `psa_cipher_set_iv(固定 IV)` → `psa_cipher_update()` + `psa_cipher_finish()`，输出就是纯密文 |
 | ECDSA | `mbedtls_ecdsa_genkey/write_signature/read_signature` | `psa_generate_key()` + `psa_sign_message(key_id, PSA_ALG_ECDSA(PSA_ALG_SHA_256), ...)` + `psa_verify_message()` |
 | 密钥 | 结构体直接持有（`mbedtls_ecp_keypair`） | 不透明句柄 `mbedtls_svc_key_id_t`，经 `psa_import_key/psa_generate_key` 获得，用完 `psa_destroy_key` |
 
-构建与预期输出见 `mbedtls_42/16_embedded_stm32/result.txt`。
+构建与预期输出见 `mbedtls_42/16_embedded_stm32/result.txt`（含 STM32 真机与 QEMU 两种目标）。
 
 ### 11.5 体积数据与裁剪效果
 
@@ -1668,7 +1676,7 @@ mbedtls_42/16_embedded_stm32/
 
 | 指标 | 3.6 (Legacy) | 4.2 (PSA) |
 |------|-------------|-----------|
-| text (Flash) | 97,092 B（≈95 KB / 1 MB，**9.5%**） | 47,364 B（≈47 KB / 1 MB，**4.6%**） |
+| text (Flash) | 97,092 B（≈95 KB / 1 MB，**9.5%**） | 49,760 B（≈49 KB / 1 MB，**4.8%**；QEMU Cortex-M3 目标 49,184 B） |
 | data + bss (RAM) | 132 + 196,476 B（≈74 KB / 192 KB，**38%**） | 相同（同一 FreeRTOS 配置） |
 | crypto 库 text | libmbedcrypto.a：171,426 B（裁剪后实际链入 ≈59 KB） | libtfpsacrypto.a：74,352 B（裁剪后实际链入 ≈43 KB） |
 | FreeRTOS text | libfreertos.a：13,627 B | libfreertos.a：13,591 B（同一内核版本） |

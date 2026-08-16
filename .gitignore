@@ -9,3 +9,4 @@ build/
 *.exe
 *.out
 build-arm/
+build-qemu/

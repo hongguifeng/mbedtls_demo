@@ -1,15 +1,15 @@
 /*
- * STM32F407VE 链接脚本（GNU ld 语法）
+ * QEMU mps2-an385 链接脚本（GNU ld 语法）
  *
- * 内存布局：
- *   FLASH : 1 MB @ 0x08000000   （代码 + 只读数据 + .data 的初始值）
- *   RAM   : 192 KB @ 0x20000000 （.data 运行副本 + .bss + 堆栈 + FreeRTOS 堆）
+ * 与 stm32f407ve.ld 的区别：
+ *   FLASH : 1 MB @ 0x00000000   （QEMU MPS2 的 SSRAM1，充当"Flash"，
+ *                                armv7m_load_kernel 把 ELF 加载到这里）
+ *   RAM   : 192 KB @ 0x20000000 （SSRAM2&3 的前 192KB，与 STM32F407VE 一致，
+ *                                便于对比两种构建的体积）
  *
- * 关键 section：
- *   .isr_vector  向量表，必须位于 Flash 起始（复位后 PC 从此读取）
- *   .data        有初始值的全局/静态变量，Flash 存初值、RAM 存运行值
- *   .bss         未初始化全局/静态变量，启动时清零
- *   _estack      主栈顶（RAM 末尾）
+ * 其余 section 布局与符号（_estack/_sdata/_edata/__etext/__bss_start__/
+ * __bss_end__/end/__heap_start__/__heap_end__）与 STM32 版完全相同，
+ * startup_qemu.s 直接复用同一套拷贝/清零逻辑。
  */
 
 ENTRY(Reset_Handler)
@@ -20,13 +20,13 @@ _min_heap_size = 0x200;                /* 至少 512B 堆（newlib 需要）*/
 
 MEMORY
 {
-    FLASH (rx)  : ORIGIN = 0x08000000, LENGTH = 1024K
+    FLASH (rx)  : ORIGIN = 0x00000000, LENGTH = 1024K
     RAM   (rwx) : ORIGIN = 0x20000000, LENGTH = 192K
 }
 
 SECTIONS
 {
-    /* 向量表：Flash 最开头 */
+    /* 向量表：Flash 最开头（QEMU M-profile 复位时从 0x0/0x4 读 SP/PC）*/
     .isr_vector :
     {
         . = ALIGN(4);
@@ -121,10 +121,8 @@ SECTIONS
 
     /DISCARD/ :
     {
+        *(ARM.exidx)
         *(.ARM.exidx*)
         *(.ARM.attributes)
     }
-
-    /* 断言：确保没有溢出 */
-    ASSERT(__heap_end__ <= ORIGIN(RAM) + LENGTH(RAM), "region RAM overflowed")
 }

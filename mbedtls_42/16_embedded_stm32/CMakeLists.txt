@@ -15,6 +15,14 @@ cmake_minimum_required(VERSION 3.14)
 
 project(mbedtls_42_embedded_stm32 C ASM)
 
+# QEMU_EMU=ON：构建为 QEMU mps2-an385（Cortex-M3，无 FPU）可运行的固件。
+#   - FreeRTOS 端口 ARM_CM4F → ARM_CM3（soft-float）
+#   - 硬件层 stm32f4_hw.c → qemu_hw.c（CMSDK APB UART + 软件 PRNG）
+#   - 启动文件 startup_stm32f4.s → startup_qemu.s（.cpu cortex-m3，无 .fpu）
+#   - 链接脚本 stm32f407ve.ld → qemu_mps2.ld（Flash @ 0x00000000）
+# 用法：./build.sh qemu
+option(QEMU_EMU "Build for QEMU mps2-an385 (Cortex-M3) instead of STM32F407VE" OFF)
+
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
@@ -61,10 +69,23 @@ FetchContent_Populate(freertos_kernel
     GIT_TAG        V11.3.0
 )
 
+# 按目标选择 FreeRTOS 端口：STM32F407 = CM4F（hard-float），QEMU MPS2 = CM3（soft-float）
+if(QEMU_EMU)
+    set(FREERTOS_PORT_DIR ${freertos_kernel_SOURCE_DIR}/portable/GCC/ARM_CM3)
+else()
+    set(FREERTOS_PORT_DIR ${freertos_kernel_SOURCE_DIR}/portable/GCC/ARM_CM4F)
+endif()
+
 add_library(freertos_config INTERFACE)
 target_include_directories(freertos_config INTERFACE
     ${CMAKE_CURRENT_SOURCE_DIR}/port          # FreeRTOSConfig.h
 )
+# QEMU_EMU 宏：FreeRTOSConfig.h 用它把时钟从 168MHz 切到 25MHz（MPS2 SYSCLK）。
+# 挂在 freertos_config 上，随 freertos PUBLIC 传播给 app.elf（platform_glue.c
+# 的 vPortSetupTimerInterrupt 也依赖 configSYSTICK_CLOCK_HZ）。
+if(QEMU_EMU)
+    target_compile_definitions(freertos_config INTERFACE QEMU_EMU)
+endif()
 
 add_library(freertos STATIC
     ${freertos_kernel_SOURCE_DIR}/croutine.c
@@ -74,25 +95,33 @@ add_library(freertos STATIC
     ${freertos_kernel_SOURCE_DIR}/tasks.c
     ${freertos_kernel_SOURCE_DIR}/timers.c
     ${freertos_kernel_SOURCE_DIR}/event_groups.c
-    ${freertos_kernel_SOURCE_DIR}/portable/GCC/ARM_CM4F/port.c
+    ${FREERTOS_PORT_DIR}/port.c
     ${freertos_kernel_SOURCE_DIR}/portable/MemMang/heap_4.c
 )
 target_include_directories(freertos PUBLIC
     ${freertos_kernel_SOURCE_DIR}/include
-    ${freertos_kernel_SOURCE_DIR}/portable/GCC/ARM_CM4F
+    ${FREERTOS_PORT_DIR}
 )
 target_link_libraries(freertos PUBLIC freertos_config)
 
 # ----------------------------------------------------------------------------
 # 3. 应用固件 app.elf
 # ----------------------------------------------------------------------------
-set(LD_SCRIPT ${CMAKE_CURRENT_SOURCE_DIR}/port/stm32f407ve.ld)
+if(QEMU_EMU)
+    set(HW_SOURCE      port/qemu_hw.c)        # CMSDK APB UART + 软件 PRNG
+    set(STARTUP_SOURCE port/startup_qemu.s)   # .cpu cortex-m3，无 FPU
+    set(LD_SCRIPT      ${CMAKE_CURRENT_SOURCE_DIR}/port/qemu_mps2.ld)
+else()
+    set(HW_SOURCE      port/stm32f4_hw.c)     # 手写硬件层：SystemInit / UART / RNG
+    set(STARTUP_SOURCE port/startup_stm32f4.s)# 启动文件 + 向量表
+    set(LD_SCRIPT      ${CMAKE_CURRENT_SOURCE_DIR}/port/stm32f407ve.ld)
+endif()
 
 add_executable(app.elf
     main.c
-    port/stm32f4_hw.c        # 手写硬件层：SystemInit / UART / RNG
+    ${HW_SOURCE}
     port/platform_glue.c     # _write / SysTick / 熵源 / 线程互斥锁回调
-    port/startup_stm32f4.s   # 启动文件 + 向量表
+    ${STARTUP_SOURCE}
 )
 
 target_link_libraries(app.elf PRIVATE

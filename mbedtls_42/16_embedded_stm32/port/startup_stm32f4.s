@@ -22,7 +22,7 @@
     .extern _estack
     .extern _sdata
     .extern _edata
-    .extern __etext
+    .extern _sidata
     .extern __bss_start__
     .extern __bss_end__
 
@@ -119,10 +119,12 @@ g_pfnVectors:
 Reset_Handler:
     ldr   sp, =_estack              /* 设置主栈指针 */
 
-    /* 拷贝 .data：从 Flash(__etext) 到 RAM(__data_start__) */
+    /* 拷贝 .data：从 Flash(_sidata=LOADADDR(.data)) 到 RAM(_sdata.._edata)
+     * 注意：不能用 __etext（.text 末尾）作源——.rodata 夹在 .text 与
+     * .data 的 LMA 之间，用 __etext 会把只读字符串拷进 .data 造成全局变量损坏。*/
     ldr   r0, =_sdata
     ldr   r1, =_edata
-    ldr   r2, =__etext
+    ldr   r2, =_sidata
 bcopy:
     cmp   r0, r1
     bge   bcopy_done
