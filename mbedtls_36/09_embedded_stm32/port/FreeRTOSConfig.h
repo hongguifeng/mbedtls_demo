@@ -12,8 +12,16 @@
 #define FREERTOS_CONFIG_H
 
 /* ---------- 时钟与处理器 ---------- */
+#ifdef QEMU_EMU
+/* QEMU mps2-an385：SYSCLK = 25 MHz。
+ * platform_glue.c 的 vPortSetupTimerInterrupt 把 SysTick CLKSOURCE 置 1
+ * （用 CPU 时钟），QEMU 里该时钟就是 25MHz，故 tick 计算必须按 25MHz。*/
+#define configCPU_CLOCK_HZ                ((unsigned long)25000000UL)
+#else
+/* STM32F407VE：HSE 8MHz → PLL → SYSCLK 168 MHz */
 #define configCPU_CLOCK_HZ                ((unsigned long)168000000UL)
-/* SysTick 时基 = CPU 时钟（Cortex-M4 SysTick 默认用内核时钟）*/
+#endif
+/* SysTick 时基 = CPU 时钟（vPortSetupTimerInterrupt 显式置 CLKSOURCE=1）*/
 #define configSYSTICK_CLOCK_HZ            (configCPU_CLOCK_HZ)
 /* 系统节拍频率：1000 Hz（1ms/tick）*/
 #define configTICK_RATE_HZ                ((TickType_t)1000)

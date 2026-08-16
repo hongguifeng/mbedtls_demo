@@ -9,10 +9,11 @@
 RTOS     : FreeRTOS-Kernel V11.3.0 (GCC/ARM_CM4F port + heap_4)
 mbedTLS  : v3.6.0 LTS（Legacy API，仅链接 mbedcrypto）
 构建命令 : ./build.sh   （产物 build-arm/app.elf / app.bin / app.hex）
+          : ./build.sh qemu  （目标 QEMU mps2-an385，产物 build-qemu/，见文末）
 
 === 裁剪后的体积（arm-none-eabi-size app.elf）===
    text    data     bss     dec     hex filename
-  97092     132  196476  293700   47b44 app.elf
+  97084     132  196476  293692   47b3c app.elf
 
 Flash 实际占用（app.map）:
   .isr_vector  0x13c   (316 B)
@@ -58,3 +59,38 @@ ECDSA verify OK
 - ECDSA 签名每次上电都不同（随机 k 来自 STM32F4 硬件 RNG），但验签必须通过。
 - 三个任务并发运行，mbedTLS 内部全局状态由 FreeRTOS 互斥锁保护
   （MBEDTLS_THREADING_C + MBEDTLS_THREADING_ALT）。
+
+=== QEMU 仿真目标（mps2-an385 / Cortex-M3）===
+构建命令 : ./build.sh qemu   （-DQEMU_EMU=ON，独立目录 build-qemu/）
+运行命令 : ./run_qemu.sh     （等价于 qemu-system-arm -M mps2-an385 -nographic
+              -kernel build-qemu/app.elf；固件不退出，Ctrl+C 结束仿真）
+
+与 STM32F407 目标的差异（仅硬件层，main.c / FreeRTOS 内核 / mbedTLS 完全一致）：
+  - 工具链 flags : -mcpu=cortex-m4 -mfpu=fpv4-sp-d16 -mfloat-abi=hard
+                  → -mcpu=cortex-m3 -mthumb（无 FPU，soft-float）
+  - FreeRTOS port: GCC/ARM_CM4F → GCC/ARM_CM3
+  - 硬件层       : stm32f4_hw.c → qemu_hw.c（CMSDK APB UART @0x40004000；
+                  MPS2 无硬件 RNG，用固定种子 xorshift128+ PRNG 顶替）
+  - 启动文件     : startup_stm32f4.s → startup_qemu.s（.cpu cortex-m3，无 .fpu）
+  - 链接脚本     : stm32f407ve.ld → qemu_mps2.ld（Flash @0x00000000，RAM @0x20000000）
+  - SysTick 时基 : 168 MHz → 25 MHz（QEMU_EMU 宏切换 configCPU_CLOCK_HZ；
+                  vPortSetupTimerInterrupt 把 CLKSOURCE 置 1，两者都取 CPU 时钟）
+
+QEMU 固件体积（arm-none-eabi-size build-qemu/app.elf）：
+   text    data     bss     dec     hex filename
+  96380     144  196464  292988   4787c app.elf
+（比 STM32F407 目标少 704 B text：Cortex-M3 soft-float 代码更小；.rodata 多 80 B）
+
+QEMU 上的预期串口输出（前几行）：
+========================================
+ mbedTLS 3.6 + QEMU mps2-an385 (Cortex-M3)
+ Legacy API embedded demo
+========================================
+…（其余与 STM32F407 相同，SHA-256 / AES-CBC 逐字节一致）
+
+注意：
+- QEMU 的 ECDSA 签名【可复现】（固定种子 PRNG），同一固件每次仿真输出
+  相同签名；这与真机（硬件 RNG，随机 k）不同，仅用于验证流程，不可用于
+  生产环境的安全性判断。PRNG 不是密码学安全的。
+- QEMU 时钟与真机不同（25 MHz vs 168 MHz），FreeRTOS tick 密度一致
+  （configCPU_CLOCK_HZ 已按目标切换），但任务调度时机不可跨平台对比。

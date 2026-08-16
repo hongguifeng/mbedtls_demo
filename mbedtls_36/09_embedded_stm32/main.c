@@ -223,10 +223,17 @@ int main(void)
      * 可能永远不刷新，导致串口看不到输出。这里设为无缓冲，printf 立即发送。*/
     setvbuf(stdout, NULL, _IONBF, 0);
 
+#ifdef QEMU_EMU
+    printf("\r\n========================================\r\n");
+    printf(" mbedTLS 3.6 + QEMU mps2-an385 (Cortex-M3)\r\n");
+    printf(" Legacy API embedded demo\r\n");
+    printf("========================================\r\n");
+#else
     printf("\r\n========================================\r\n");
     printf(" mbedTLS 3.6 + STM32F407 + FreeRTOS\r\n");
     printf(" Legacy API embedded demo\r\n");
     printf("========================================\r\n");
+#endif
 
     /* 2. 注册 FreeRTOS 互斥锁（mbedTLS 线程安全）*/
     mbedtls_platform_setup_threading();

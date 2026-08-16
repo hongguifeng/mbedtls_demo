@@ -16,6 +16,14 @@
 cmake_minimum_required(VERSION 3.14)
 project(mbedtls_36_embedded_stm32 C ASM)
 
+# QEMU_EMU=ON：构建为 QEMU mps2-an385（Cortex-M3，无 FPU）可运行的固件。
+#   - FreeRTOS 端口 ARM_CM4F → ARM_CM3（soft-float）
+#   - 硬件层 stm32f4_hw.c → qemu_hw.c（CMSDK APB UART + 软件 PRNG）
+#   - 启动文件 startup_stm32f4.s → startup_qemu.s（.cpu cortex-m3，无 .fpu）
+#   - 链接脚本 stm32f407ve.ld → qemu_mps2.ld（Flash @ 0x00000000）
+# 用法：./build.sh qemu
+option(QEMU_EMU "Build for QEMU mps2-an385 (Cortex-M3) instead of STM32F407VE" OFF)
+
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
@@ -71,7 +79,20 @@ add_library(freertos_config INTERFACE)
 target_include_directories(freertos_config INTERFACE
     ${CMAKE_CURRENT_SOURCE_DIR}/port)
 
-# FreeRTOS 静态库：7 个核心文件 + ARM_CM4F 端口 + heap_4
+# QEMU_EMU 宏：FreeRTOSConfig.h 用它把时钟从 168MHz 切到 25MHz（MPS2 SYSCLK）。
+# freertos 以 PUBLIC 方式链接 freertos_config，宏会传递到 app.elf。
+if(QEMU_EMU)
+    target_compile_definitions(freertos_config INTERFACE QEMU_EMU)
+endif()
+
+# FreeRTOS 静态库：7 个核心文件 + Cortex-M 端口（按目标选择）+ heap_4
+# 按目标选择 FreeRTOS 端口：STM32F407 = CM4F（hard-float），QEMU MPS2 = CM3（soft-float）
+if(QEMU_EMU)
+    set(FREERTOS_PORT_DIR ${freertos_kernel_SOURCE_DIR}/portable/GCC/ARM_CM3)
+else()
+    set(FREERTOS_PORT_DIR ${freertos_kernel_SOURCE_DIR}/portable/GCC/ARM_CM4F)
+endif()
+
 add_library(freertos STATIC
     ${freertos_kernel_SOURCE_DIR}/croutine.c
     ${freertos_kernel_SOURCE_DIR}/list.c
@@ -80,22 +101,32 @@ add_library(freertos STATIC
     ${freertos_kernel_SOURCE_DIR}/tasks.c
     ${freertos_kernel_SOURCE_DIR}/timers.c
     ${freertos_kernel_SOURCE_DIR}/event_groups.c
-    ${freertos_kernel_SOURCE_DIR}/portable/GCC/ARM_CM4F/port.c
+    ${FREERTOS_PORT_DIR}/port.c
     ${freertos_kernel_SOURCE_DIR}/portable/MemMang/heap_4.c
 )
 target_include_directories(freertos PUBLIC
     ${freertos_kernel_SOURCE_DIR}/include
-    ${freertos_kernel_SOURCE_DIR}/portable/GCC/ARM_CM4F)
+    ${FREERTOS_PORT_DIR})
 target_link_libraries(freertos PUBLIC freertos_config)
 
 # ---------------------------------------------------------------------
-# 三、应用（STM32F407VE 固件）
+# 三、应用（固件：STM32F407VE 或 QEMU mps2-an385）
 # ---------------------------------------------------------------------
+if(QEMU_EMU)
+    set(HW_SOURCE      port/qemu_hw.c)        # CMSDK APB UART + 软件 PRNG
+    set(STARTUP_SOURCE port/startup_qemu.s)   # .cpu cortex-m3，无 FPU
+    set(LD_SCRIPT      ${CMAKE_CURRENT_SOURCE_DIR}/port/qemu_mps2.ld)
+else()
+    set(HW_SOURCE      port/stm32f4_hw.c)     # 手写硬件层：SystemInit / UART / RNG
+    set(STARTUP_SOURCE port/startup_stm32f4.s)# 启动文件 + 向量表
+    set(LD_SCRIPT      ${CMAKE_CURRENT_SOURCE_DIR}/port/stm32f407ve.ld)
+endif()
+
 add_executable(app.elf
     main.c
-    port/stm32f4_hw.c
+    ${HW_SOURCE}
     port/platform_glue.c
-    port/startup_stm32f4.s
+    ${STARTUP_SOURCE}
 )
 
 target_include_directories(app.elf PRIVATE
@@ -111,8 +142,7 @@ target_link_libraries(app.elf PRIVATE
 )
 
 # 裸机链接：使用自定义链接脚本（内存布局），不引入 newlib 的 crt0
-# （入口由 startup_stm32f4.s 的 Reset_Handler 决定，见链接脚本 ENTRY）
-set(LD_SCRIPT ${CMAKE_CURRENT_SOURCE_DIR}/port/stm32f407ve.ld)
+# （入口由 startup 文件的 Reset_Handler 决定，见链接脚本 ENTRY）
 set_target_properties(app.elf PROPERTIES LINK_DEPENDS ${LD_SCRIPT})
 target_link_options(app.elf PRIVATE
     -T${LD_SCRIPT}

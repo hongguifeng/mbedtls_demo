@@ -1612,22 +1612,31 @@ MBEDTLS_SRC=/path/to/mbedtls-4.2 ./build.sh
 
 ```
 mbedtls_36/09_embedded_stm32/
-├── arm-none-eabi.cmake          # 工具链文件
+├── arm-none-eabi.cmake          # 工具链文件（与示例16 相同，QEMU_EMU 切换 FPU 选项）
 ├── CMakeLists.txt               # mbedcrypto + FreeRTOS + app.elf
-├── build.sh                     # 自动探测工具链并构建
+├── build.sh                     # 默认 STM32F407VE；./build.sh qemu → QEMU mps2-an385
+├── run_qemu.sh                  # 一键 QEMU 仿真运行（mps2-an385，Cortex-M3）
 ├── main.c                       # 3 个任务：SHA-256 / AES-CBC / ECDSA P-256
 ├── mbedtls_user_config_stm32.h  # 3.6 裁剪配置（模块级宏）
-├── result.txt                   # 构建体积 + 预期串口输出
+├── result.txt                   # 构建体积 + 预期串口输出（含 STM32 真机与 QEMU 两种目标）
 └── port/
     ├── startup_stm32f4.s        # 向量表 + 启动代码
     ├── stm32f407ve.ld           # 链接脚本（含 __etext / end 修正）
-    ├── FreeRTOSConfig.h         # RTOS 配置（含 INCLUDE_vTaskDelete=1）
+    ├── FreeRTOSConfig.h         # RTOS 配置（含 INCLUDE_vTaskDelete=1；QEMU_EMU 切换时钟 25MHz）
     ├── stm32f4_hw.c/.h          # 手写硬件层：SystemInit / UART / RNG
     ├── threading_alt.h          # mbedtls_threading_mutex_t 定义
-    └── platform_glue.c          # _write / SysTick / 熵源 / 4 个互斥锁回调
+    ├── platform_glue.c          # _write / SysTick / 熵源 / 4 个互斥锁回调
+    ├── startup_qemu.s           # QEMU mps2-an385 启动代码（Cortex-M3，无 FPU）
+    ├── qemu_mps2.ld             # CMSDK 内存布局：RAM@0x20000000 / APB UART@0x40004000
+    └── qemu_hw.c                # QEMU 硬件层：SystemInit / UART0 / 软件 PRNG（熵源）
 ```
 
-构建与预期输出见 `mbedtls_36/09_embedded_stm32/result.txt`。核心 API 调用：
+> **QEMU 仿真**：`./build.sh qemu && ./run_qemu.sh`。与示例16 相同：mps2-an385 是
+> Cortex-M3（无硬件 FPU，25 MHz），QEMU 构建切到 FreeRTOS `GCC/ARM_CM3` 端口；
+> 串口走 CMSDK APB UART0；MPS2 无硬件 RNG，用固定种子 PRNG 顶替熵源，所以
+> QEMU 上的 ECDSA 签名【可复现】（真机每次不同），仅供验证流程。
+
+构建与预期输出见 `mbedtls_36/09_embedded_stm32/result.txt`（含 STM32 真机与 QEMU 两种目标）。核心 API 调用：
 
 ```c
 mbedtls_sha256((const unsigned char *)msg, len, hash, 0);          /* L3 哈希 */
@@ -1676,7 +1685,7 @@ mbedtls_42/16_embedded_stm32/
 
 | 指标 | 3.6 (Legacy) | 4.2 (PSA) |
 |------|-------------|-----------|
-| text (Flash) | 97,092 B（≈95 KB / 1 MB，**9.5%**） | 49,760 B（≈49 KB / 1 MB，**4.8%**；QEMU Cortex-M3 目标 49,184 B） |
+| text (Flash) | 97,084 B（≈95 KB / 1 MB，**9.5%**；QEMU Cortex-M3 目标 96,380 B） | 49,760 B（≈49 KB / 1 MB，**4.8%**；QEMU Cortex-M3 目标 49,184 B） |
 | data + bss (RAM) | 132 + 196,476 B（≈74 KB / 192 KB，**38%**） | 相同（同一 FreeRTOS 配置） |
 | crypto 库 text | libmbedcrypto.a：171,426 B（裁剪后实际链入 ≈59 KB） | libtfpsacrypto.a：74,352 B（裁剪后实际链入 ≈43 KB） |
 | FreeRTOS text | libfreertos.a：13,627 B | libfreertos.a：13,591 B（同一内核版本） |

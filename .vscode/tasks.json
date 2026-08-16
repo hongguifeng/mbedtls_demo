@@ -89,6 +89,132 @@
             ],
             "problemMatcher": [],
             "detail": "Pick an example (01-15), auto-detect sub-project and run it"
+        },
+
+        {
+            "label": "Build 09 Embedded (STM32F407)",
+            "type": "shell",
+            "command": "bash",
+            "args": [
+                "-c",
+                "cd \"${workspaceFolder}/mbedtls_36/09_embedded_stm32\" && ./build.sh"
+            ],
+            "group": "build",
+            "problemMatcher": [
+                "$gcc"
+            ],
+            "detail": "Cross-build 09 firmware for STM32F407VE (Cortex-M4F) → build-arm/"
+        },
+        {
+            "label": "Build 09 Embedded (QEMU)",
+            "type": "shell",
+            "command": "bash",
+            "args": [
+                "-c",
+                "cd \"${workspaceFolder}/mbedtls_36/09_embedded_stm32\" && ./build.sh qemu"
+            ],
+            "group": "build",
+            "problemMatcher": [
+                "$gcc"
+            ],
+            "detail": "Cross-build 09 firmware for QEMU mps2-an385 (Cortex-M3) → build-qemu/"
+        },
+        {
+            "label": "Build 16 Embedded (STM32F407)",
+            "type": "shell",
+            "command": "bash",
+            "args": [
+                "-c",
+                "cd \"${workspaceFolder}/mbedtls_42/16_embedded_stm32\" && ./build.sh"
+            ],
+            "group": "build",
+            "problemMatcher": [
+                "$gcc"
+            ],
+            "detail": "Cross-build 16 firmware for STM32F407VE (Cortex-M4F) → build-arm/"
+        },
+        {
+            "label": "Build 16 Embedded (QEMU)",
+            "type": "shell",
+            "command": "bash",
+            "args": [
+                "-c",
+                "cd \"${workspaceFolder}/mbedtls_42/16_embedded_stm32\" && ./build.sh qemu"
+            ],
+            "group": "build",
+            "problemMatcher": [
+                "$gcc"
+            ],
+            "detail": "Cross-build 16 firmware for QEMU mps2-an385 (Cortex-M3) → build-qemu/"
+        },
+        {
+            "label": "Run 09 Embedded (QEMU)",
+            "type": "shell",
+            "command": "bash",
+            "args": [
+                "-c",
+                "cd \"${workspaceFolder}/mbedtls_36/09_embedded_stm32\" && ./run_qemu.sh"
+            ],
+            "problemMatcher": {
+                "owner": "arm-none-eabi",
+                "fileLocation": [
+                    "relative",
+                    "${workspaceFolder}"
+                ],
+                "background": {
+                    "activeOnStart": true,
+                    "probedPorts": [
+                        1234
+                    ]
+                }
+            },
+            "presentation": {
+                "panel": "new",
+                "reveal": "always",
+                "focus": true,
+                "group": "qemu"
+            },
+            "detail": "Simulate 09 firmware in QEMU mps2-an385 (Ctrl+C exits; GDB stub on :1234)"
+        },
+        {
+            "label": "Run 16 Embedded (QEMU)",
+            "type": "shell",
+            "command": "bash",
+            "args": [
+                "-c",
+                "cd \"${workspaceFolder}/mbedtls_42/16_embedded_stm32\" && ./run_qemu.sh"
+            ],
+            "problemMatcher": {
+                "owner": "arm-none-eabi",
+                "fileLocation": [
+                    "relative",
+                    "${workspaceFolder}"
+                ],
+                "background": {
+                    "activeOnStart": true,
+                    "probedPorts": [
+                        1234
+                    ]
+                }
+            },
+            "presentation": {
+                "panel": "new",
+                "reveal": "always",
+                "focus": true,
+                "group": "qemu"
+            },
+            "detail": "Simulate 16 firmware in QEMU mps2-an385 (Ctrl+C exits; GDB stub on :1234)"
+        },
+        {
+            "label": "Stop Embedded QEMU",
+            "type": "shell",
+            "command": "bash",
+            "args": [
+                "-c",
+                "pkill -f 'qemu-system-arm.*mps2-an385' 2>/dev/null || true"
+            ],
+            "problemMatcher": [],
+            "detail": "Terminate the mps2-an385 QEMU instance (used as postDebugTask)"
         }
     ],
     "inputs": [
