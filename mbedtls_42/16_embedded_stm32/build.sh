@@ -69,9 +69,11 @@ if [[ "$QEMU_MODE" -eq 1 ]]; then
     CMAKE_EXTRA_ARGS+=("-DQEMU_EMU=ON")
 fi
 
+# Debug：-O0 -g（CMake 默认 flags），断点按源码行准确命中；
+# MinSizeRel（-Os -DNDEBUG）没有行号调试信息且会优化掉局部变量，无法调试。
 cmake -S . -B "$BUILD_DIR" \
     -DCMAKE_TOOLCHAIN_FILE=arm-none-eabi.cmake \
-    -DCMAKE_BUILD_TYPE=MinSizeRel \
+    -DCMAKE_BUILD_TYPE=Debug \
     -DMBEDTLS_FATAL_WARNINGS=OFF \
     ${CMAKE_EXTRA_ARGS[@]+"${CMAKE_EXTRA_ARGS[@]}"}
 
