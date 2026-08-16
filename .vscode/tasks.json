@@ -155,19 +155,7 @@
                 "-c",
                 "cd \"${workspaceFolder}/mbedtls_36/09_embedded_stm32\" && ./run_qemu.sh --debug"
             ],
-            "problemMatcher": {
-                "owner": "arm-none-eabi",
-                "fileLocation": [
-                    "relative",
-                    "${workspaceFolder}"
-                ],
-                "background": {
-                    "activeOnStart": true,
-                    "probedPorts": [
-                        1234
-                    ]
-                }
-            },
+            "problemMatcher": [],
             "presentation": {
                 "panel": "new",
                 "reveal": "always",
@@ -184,19 +172,7 @@
                 "-c",
                 "cd \"${workspaceFolder}/mbedtls_42/16_embedded_stm32\" && ./run_qemu.sh --debug"
             ],
-            "problemMatcher": {
-                "owner": "arm-none-eabi",
-                "fileLocation": [
-                    "relative",
-                    "${workspaceFolder}"
-                ],
-                "background": {
-                    "activeOnStart": true,
-                    "probedPorts": [
-                        1234
-                    ]
-                }
-            },
+            "problemMatcher": [],
             "presentation": {
                 "panel": "new",
                 "reveal": "always",
