@@ -29,7 +29,7 @@ if ! command -v qemu-system-arm >/dev/null 2>&1; then
     exit 1
 fi
 
-# --debug：-gdb tcp::PORT 开 GDB server（端口 QEMU_GDB_PORT，默认 1234，
+# --debug：-gdb tcp::PORT 开 GDB server（端口 QEMU_GDB_PORT，默认 12349，
 #          与 .vscode/launch.json 的 miDebuggerServerAddress 保持一致）；
 #          -S 让 CPU 停在复位处，等 GDB attach 并 continue 后才开始跑。
 #          没有它固件几秒内就跑完，attach 时已经错过了入口。

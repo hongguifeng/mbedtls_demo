@@ -162,7 +162,7 @@
                 "focus": true,
                 "group": "qemu"
             },
-            "detail": "Start 09 firmware in detached QEMU mps2-an385 (GDB stub :1234, CPU held at reset; serial → build-qemu/qemu_debug.log), then exit. preLaunchTask for Debug 09 Embedded (QEMU)"
+            "detail": "Start 09 firmware in detached QEMU mps2-an385 (GDB stub :12349, CPU held at reset; serial → build-qemu/qemu_debug.log), then exit. preLaunchTask for Debug 09 Embedded (QEMU)"
         },
         {
             "label": "Run 16 Embedded (QEMU)",

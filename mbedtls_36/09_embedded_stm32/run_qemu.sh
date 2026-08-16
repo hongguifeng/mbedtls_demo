@@ -6,7 +6,7 @@
 #   ./build.sh qemu        # 先构建（产物在 build-qemu/）
 #   ./run_qemu.sh          # 仿真运行，串口输出直接打到终端
 #   ./run_qemu.sh --debug  # 调试模式（分离启动，本脚本立即退出）：-S 让 CPU 停在
-#                          # 复位处、:1234（可用 QEMU_GDB_PORT 覆盖）开 GDB stub，
+#                          # 复位处、:12349（可用 QEMU_GDB_PORT 覆盖）开 GDB stub，
 #                          # 串口 → build-qemu/qemu_debug.log；.vscode/launch.json
 #                          # 的 "Debug 09 Embedded (QEMU)" preLaunchTask 用此模式
 #
@@ -29,7 +29,7 @@ if ! command -v qemu-system-arm >/dev/null 2>&1; then
     exit 1
 fi
 
-GDB_PORT=${QEMU_GDB_PORT:-1234}   # 默认与 launch.json miDebuggerServerAddress 一致
+GDB_PORT=${QEMU_GDB_PORT:-12349}   # 默认与 launch.json miDebuggerServerAddress 一致
 DEBUG=0
 case "${1:-}" in
     --debug|-d) DEBUG=1 ;;
@@ -56,7 +56,7 @@ fi
 # 分离（setsid）到后台拉起，等 GDB stub 端口就绪后脚本就退出：
 #   -S              CPU 停在复位处，GDB attach 并 continue 后才开始跑（没有它
 #                   固件几秒内就跑完，attach 时已错过入口）
-#   -gdb tcp::PORT  GDB stub（默认 :1234，与 launch.json 一致）
+#   -gdb tcp::PORT  GDB stub（默认 :12349，与 launch.json 一致）
 #   串口输出         → build-qemu/qemu_debug.log（tail -f 查看固件输出）
 pkill -f 'qemu-system-arm.*mps2-an385' 2>/dev/null || true  # 避免旧实例占着端口
 sleep 0.3
