@@ -23,7 +23,8 @@ mbedtls_demo/
 │   ├── 05_x509_parse/        # L5: X.509 证书解析
 │   ├── 06_tls_client/        # L6: TLS 客户端
 │   ├── 07_tls_mutual/        # L6: TLS 双向认证
-│   └── 08_custom_bio/        # L6: 自定义 BIO 回调
+│   ├── 08_custom_bio/        # L6: 自定义 BIO 回调
+│   └── 09_embedded_stm32/    # 嵌入式: STM32F407 + FreeRTOS 交叉编译（Legacy API）
 └── mbedtls_42/               # ── mbedTLS 4.2.0 (PSA Crypto API) ──
     ├── CMakeLists.txt
     ├── build.sh
@@ -33,7 +34,8 @@ mbedtls_demo/
     ├── 12_psa_mac/           # PSA: MAC (HMAC/CMAC)
     ├── 13_psa_asymmetric/    # PSA: 非对称签名 (ECC/RSA)
     ├── 14_psa_kdf/           # PSA: 密钥派生 (HKDF/ECDH)
-    └── 15_psa_key_mgmt/      # PSA: 密钥管理
+    ├── 15_psa_key_mgmt/      # PSA: 密钥管理
+    └── 16_embedded_stm32/    # 嵌入式: STM32F407 + FreeRTOS 交叉编译（PSA API）
 ```
 
 ---
@@ -73,7 +75,15 @@ mbedtls_demo/
   - [示例15：PSA 密钥管理](#示例15psa-密钥管理)
 - [九、接口层设计：硬件驱动可替换性](#九接口层设计硬件驱动可替换性)
 - [十、与项目代码的对应关系](#十与项目代码的对应关系)
-- [十一、常见问题](#十一常见问题)
+- [十一、嵌入式集成：裁剪与交叉编译 (STM32 + FreeRTOS)](#十一嵌入式集成裁剪与交叉编译-stm32--freertos)
+  - [11.1 可替换接口总览](#111-可替换接口总览)
+  - [11.2 裁剪方法论：3.6 vs 4.2](#112-裁剪方法论36-vs-42)
+  - [11.3 交叉编译工具链与 CMake](#113-交叉编译工具链与-cmake)
+  - [11.4 FreeRTOS 集成要点](#114-freertos-集成要点)
+  - [示例09：3.6 Legacy API 嵌入式固件](#示例0936-legacy-api-嵌入式固件)
+  - [示例16：4.2 PSA API 嵌入式固件](#示例1642-psa-api-嵌入式固件)
+  - [11.5 体积数据与裁剪效果](#115-体积数据与裁剪效果)
+- [十二、常见问题](#十二常见问题)
 
 ---
 
@@ -1428,7 +1438,255 @@ psa_cipher_encrypt_setup(&op, key, PSA_ALG_CBC_PKCS7);  /* 成功 */
 
 ---
 
-## 九、常见问题
+## 十一、嵌入式集成：裁剪与交叉编译 (STM32 + FreeRTOS)
+
+前面所有示例都在 Linux 主机上运行。本章把 mbedTLS 搬上真实嵌入式目标：
+
+- **MCU**：STM32F407VE —— Cortex-M4F（带 FPU），168 MHz，1 MB Flash / 192 KB RAM
+- **RTOS**：FreeRTOS-Kernel V11.3.0（只取内核核心 + CM4F 端口 + heap_4，不引入 CMSIS/HAL）
+- **工具链**：`arm-none-eabi-gcc`（GNU Arm Embedded Toolchain）
+
+两个示例分别对应两套 API 体系，结构完全平行：
+
+| 示例 | API 体系 | 链接目标 | 裁剪入口 |
+|------|---------|---------|---------|
+| `mbedtls_36/09_embedded_stm32` | Legacy API（`aes.h` / `sha256.h` / `ecdsa.h`） | `mbedcrypto` | `MBEDTLS_USER_CONFIG_FILE` |
+| `mbedtls_42/16_embedded_stm32` | PSA Crypto API（`psa/crypto.h`） | `tfpsacrypto` | `TF_PSA_CRYPTO_USER_CONFIG_FILE` |
+
+每个固件包含三个并发任务：**SHA-256 哈希**、**AES-128-CBC 加解密往返**、**ECDSA P-256 签名/验签**，
+全部通过 USART1（115200-8N1）打印结果。熵源使用 STM32F4 片上硬件 RNG（RNG 外设），
+mbedTLS 内部全局状态由 FreeRTOS 互斥锁保护。
+
+### 11.1 可替换接口总览
+
+mbedTLS 在裸机 + RTOS 环境下需要替换三类平台接口，3.6 与 4.2 的机制不同：
+
+| 接口 | 3.6 启用宏 | 3.6 回调签名 | 4.2 启用宏 | 4.2 回调签名 |
+|------|-----------|-------------|-----------|-------------|
+| **熵源** | `MBEDTLS_ENTROPY_HARDWARE_ALT` + `MBEDTLS_NO_PLATFORM_ENTROPY` | `mbedtls_hardware_poll(void *data, unsigned char *out, size_t len, size_t *olen)` | `#undef MBEDTLS_PSA_BUILTIN_GET_ENTROPY` + `#define MBEDTLS_PSA_DRIVER_GET_ENTROPY` | `mbedtls_platform_get_entropy(psa_driver_get_entropy_flags_t flags, size_t *estimate_bits, unsigned char *out, size_t out_size)` |
+| **线程互斥锁** | `MBEDTLS_THREADING_C` + `MBEDTLS_THREADING_ALT` | `mbedtls_threading_set_alt()` —— **4 个**指针（mutex init/free/lock/unlock） | 同左 | `mbedtls_threading_set_alt()` —— **9 个**指针（新增条件变量 init/destroy/signal/broadcast/wait） |
+| **标准 I/O** | newlib retarget | `_write(int fd, const char *buf, int len)` → UART | 同左 | 同左 |
+
+要点：
+
+1. **熵源契约（4.2）**：`mbedtls_platform_get_entropy` 必须把整个输出缓冲区填满，
+   并设置 `*estimate_bits = 8 * output_size`；否则内部返回
+   `PSA_ERROR_INSUFFICIENT_ENTROPY`。3.6 的 `mbedtls_hardware_poll` 则通过
+   `*olen` 报告实际读到的字节数。
+2. **4.2 的条件变量是"死代码"**：库内没有任何代码路径真正调用条件变量，
+   9 个回调中的 5 个 cond 回调只需返回 0 的桩实现即可（见 `port/platform_glue.c`）。
+3. **`set_alt` 会顺带初始化全局互斥锁**（4.2 中包括密钥槽位锁、PSA 全局数据锁、RNG 数据锁），
+   因此在 `main()` 里任何 PSA 调用之前调用一次即可，无需每个任务重复设置。
+4. **4.2 默认熵源在裸机上直接 `#error`**：`MBEDTLS_PSA_BUILTIN_GET_ENTROPY` 的默认实现
+   只支持 Unix/Windows，非这两平台会编译报错并提示改用 `MBEDTLS_PSA_DRIVER_GET_ENTROPY`——
+   这正是裸机集成的标准路径。
+
+### 11.2 裁剪方法论：3.6 vs 4.2
+
+两个版本都在**预处理器层面**裁剪，但粒度不同：
+
+**3.6 —— 模块级宏（`mbedtls_user_config_stm32.h`）**
+
+```c
+/* 关掉整个模块 */
+#undef MBEDTLS_RSA_C            /* RSA 全家桶 */
+#undef MBEDTLS_SSL_TLS_C        /* TLS 协议栈 */
+#undef MBEDTLS_X509_USE_C       /* X.509 */
+#undef MBEDTLS_PSA_CRYPTO_C     /* PSA 层（本示例只用 Legacy API）*/
+#undef MBEDTLS_NET_C            /* POSIX socket，裸机无法编译 */
+#undef MBEDTLS_TIMING_C         /* gettimeofday，裸机无法编译 */
+
+/* 打开 RTOS 集成所需 */
+#define MBEDTLS_THREADING_C
+#define MBEDTLS_THREADING_ALT
+#define MBEDTLS_ENTROPY_HARDWARE_ALT
+#define MBEDTLS_NO_PLATFORM_ENTROPY
+```
+
+**4.2 —— `PSA_WANT_*` 算法/密钥类型级宏（`psa_user_config_stm32.h`）**
+
+```c
+/* 只保留本示例用到的算法与密钥类型，其余全部 undef */
+#define MBEDTLS_THREADING_C
+#define MBEDTLS_THREADING_ALT
+#undef MBEDTLS_PSA_BUILTIN_GET_ENTROPY
+#define MBEDTLS_PSA_DRIVER_GET_ENTROPY
+
+/* 保留：SHA-256、AES-CBC(无填充)、ECDSA、SECP_R1_256、AES/ECC 密钥类型 */
+/* 其余 PSA_WANT_ALG_* / PSA_WANT_KEY_TYPE_* / PSA_WANT_ECC_* 全部 undef */
+```
+
+关键区别：
+
+- **3.6** 的 `mbedtls_config.h` 用 `MBEDTLS_XXX_C` 控制"模块是否存在"，
+  用户配置经 `config_adjust_*.h` 做依赖修正后进入 `check_config.h` 校验。
+- **4.2** 中 tf-psa-crypto 的**所有 .c 文件都会被编译**，`PSA_WANT_*` 在预处理器层面
+  决定每个算法函数体是否参与编译，最终由链接器 `--gc-sections` 丢弃未引用的代码。
+  因此 4.2 的裁剪粒度更细（可以只留 SHA-256 而保留整个 hash 框架），
+  但必须配合 `-ffunction-sections -fdata-sections` + `--gc-sections` 才能看到体积收益。
+- **两个版本都必须关掉 TLS/X.509**：`net_sockets.c`、`timing.c` 依赖 POSIX，
+  裸机根本无法通过编译；且本示例不需要协议层。
+
+### 11.3 交叉编译工具链与 CMake
+
+**工具链文件 `arm-none-eabi.cmake`**（两个示例共用同一份）：
+
+```cmake
+set(CMAKE_SYSTEM_NAME Generic)
+set(CMAKE_C_COMPILER   arm-none-eabi-gcc)
+set(CMAKE_ASM_COMPILER arm-none-eabi-gcc)
+# Cortex-M4F：单精度 FPU + 硬浮点 ABI
+set(MCU_FLAGS "-mcpu=cortex-m4 -mthumb -mfpu=fpv4-sp-d16 -mfloat-abi=hard")
+# 每个函数/数据独立成段，配合 --gc-sections 做死代码消除
+add_compile_options(${MCU_FLAGS} -ffunction-sections -fdata-sections -fno-common)
+# newlib-nano + nosys：嵌入式标准库
+set(CMAKE_EXE_LINKER_FLAGS_INIT "-Wl,--gc-sections --specs=nosys.specs --specs=nano.specs")
+```
+
+**CMake 结构**（以 4.2 为例，3.6 仅链接目标与裁剪变量不同）：
+
+```cmake
+# 1) 裁剪配置必须在 FetchContent_MakeAvailable 之前设置（FILEPATH 缓存变量）
+set(TF_PSA_CRYPTO_USER_CONFIG_FILE ${CMAKE_CURRENT_SOURCE_DIR}/port/psa_user_config_stm32.h
+    CACHE FILEPATH "" FORCE)
+FetchContent_Declare(mbedtls GIT_REPOSITORY ... GIT_TAG v4.2.0
+                     GIT_SUBMODULES "tf-psa-crypto" "framework")
+set(USE_STATIC_MBEDTLS_LIBRARY ON CACHE BOOL "" FORCE)   # 静态库，目标名 tfpsacrypto
+# threading_alt.h 在 port/ 下，4.2 的 threading.h 会 #include 它。
+# 注意：必须用目录级 include_directories()（而非 target_include_directories），
+# 因为 tf-psa-crypto 内部拆成 platform/utilities/extras/core 等多个
+# object library 目标，它们不继承 tfpsacrypto 的 target 级包含路径。
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/port)
+FetchContent_MakeAvailable(mbedtls)
+
+# 2) FreeRTOS：FetchContent_Populate 只取源码，手动列核心文件（不跑它的 CMake）
+add_library(freertos STATIC
+    .../croutine.c .../list.c .../queue.c .../stream_buffer.c
+    .../tasks.c .../timers.c .../event_groups.c
+    .../portable/GCC/ARM_CM4F/port.c
+    .../portable/MemMang/heap_4.c)
+
+# 3) 固件：应用 + 手写硬件层 + 平台胶水 + 启动文件
+add_executable(app.elf main.c port/stm32f4_hw.c port/platform_glue.c port/startup_stm32f4.s)
+target_link_libraries(app.elf PRIVATE tfpsacrypto freertos)
+target_link_options(app.elf PRIVATE -T${LD_SCRIPT} -Wl,-Map=app.map
+                -Wl,--gc-sections -nostartfiles)
+```
+
+**链接脚本 `stm32f407ve.ld` 的两个易错点**（本项目实际踩过的坑）：
+
+1. 启动文件用 `ldr r2, =__etext` 定位 `.data` 的 Flash 源地址，链接脚本必须定义
+   `__etext = .;`（很多模板只定义了 `_etext`）。
+2. newlib-nano 的 `_sbrk`（来自 `libnosys.a`）引用符号 `end` 作为堆起点，
+   链接脚本必须在 `.bss` 末尾定义 `end = .;`，否则链接报 undefined reference。
+
+**手写硬件层 `port/stm32f4_hw.c`**（不依赖 CMSIS/HAL，直接操作寄存器）：
+
+- `SystemInit()`：HSE 8 MHz → PLL ×336/2/2 = 168 MHz
+- `hw_uart_init()` / `hw_uart_putc()`：PA9 (USART1_TX) AF7，115200-8N1，`\n` 转 `\r\n`
+- `hw_rng_init()` / `hw_rng_poll()`：使能 RNG 外设（AHB1ENR bit6 + CR.RNGEN），
+  轮询 SR.DRDY 读 DR —— 这就是喂给 mbedTLS 的硬件熵源
+
+**构建加速提示**：两个示例的 `build.sh` 都支持 `MBEDTLS_SRC` 环境变量，
+指向本机已有的 mbedtls 源码树（含子模块）可跳过 FetchContent 的 git clone：
+
+```bash
+# 例如复用本仓库 mbedtls_42 原生构建已拉取的源码
+MBEDTLS_SRC=/path/to/mbedtls-4.2 ./build.sh
+```
+
+> 注意：`FETCHCONTENT_SOURCE_DIR_MBEDTLS` 只能作为 CMake `-D` 缓存变量传入，
+> 直接设成 shell 环境变量是无效的（CMake 不会读取它）。
+
+### 11.4 FreeRTOS 集成要点
+
+| 要点 | 说明 |
+|------|------|
+| **`INCLUDE_vTaskDelete` 必须显式开启** | FreeRTOS V11 中该宏**默认值为 0**（`FreeRTOS.h`），不开则 `vTaskDelete` 不编译进内核，链接报 undefined reference。本项目三个任务结束后都调用 `vTaskDelete(NULL)` |
+| **SysTick 优先级** | `configKERNEL_INTERRUPT_PRIORITY = 240`（8 位优先级最低档）。`vPortSetupTimerInterrupt` 用裸寄存器实现（SCB->SYSCLKCTRL/PENDSV/SVTIM、SHPR3），不依赖 CMSIS，把 PendSV/SysTick 压到最低，保证密码运算期间可被抢占 |
+| **堆** | `heap_4.c` + `configTOTAL_HEAP_SIZE = 64 KB`；任务栈：hash/aes 各 512 字、ecc 1024 字（ECDSA 大数运算栈消耗大） |
+| **互斥锁回调** | `frt_mutex_init` → `xSemaphoreCreateMutex()`，`frt_mutex_lock` → `xSemaphoreTake(pdMS_TO_TICKS(1000))`。mbedTLS 的线程锁粒度是"每次密码操作一把锁"，1 s 超时足够 |
+| **断言与钩子** | `configASSERT` → `vAssertCalled()`（UART 打印后死循环）；`MallocFailedHook` / `StackOverflowHook` 打印现场 |
+
+### 示例09：3.6 Legacy API 嵌入式固件
+
+```
+mbedtls_36/09_embedded_stm32/
+├── arm-none-eabi.cmake          # 工具链文件
+├── CMakeLists.txt               # mbedcrypto + FreeRTOS + app.elf
+├── build.sh                     # 自动探测工具链并构建
+├── main.c                       # 3 个任务：SHA-256 / AES-CBC / ECDSA P-256
+├── mbedtls_user_config_stm32.h  # 3.6 裁剪配置（模块级宏）
+├── result.txt                   # 构建体积 + 预期串口输出
+└── port/
+    ├── startup_stm32f4.s        # 向量表 + 启动代码
+    ├── stm32f407ve.ld           # 链接脚本（含 __etext / end 修正）
+    ├── FreeRTOSConfig.h         # RTOS 配置（含 INCLUDE_vTaskDelete=1）
+    ├── stm32f4_hw.c/.h          # 手写硬件层：SystemInit / UART / RNG
+    ├── threading_alt.h          # mbedtls_threading_mutex_t 定义
+    └── platform_glue.c          # _write / SysTick / 熵源 / 4 个互斥锁回调
+```
+
+构建与预期输出见 `mbedtls_36/09_embedded_stm32/result.txt`。核心 API 调用：
+
+```c
+mbedtls_sha256((const unsigned char *)msg, len, hash, 0);          /* L3 哈希 */
+mbedtls_aes_crypt_cbc(&ctx, MBEDTLS_AES_ENCRYPT, plen, iv, in, out); /* L3 对称 */
+mbedtls_ecdsa_genkey(&eckey, &ecgrp, f_rng, p_rng);                /* L3 ECC */
+mbedtls_ecdsa_write_signature(&eckey, MBEDTLS_MD_SHA256, ...);     /* L3 签名 */
+```
+
+### 示例16：4.2 PSA API 嵌入式固件
+
+```
+mbedtls_42/16_embedded_stm32/
+├── arm-none-eabi.cmake          # 工具链文件（与 3.6 相同）
+├── CMakeLists.txt               # tfpsacrypto + FreeRTOS + app.elf
+├── build.sh
+├── main.c                       # 3 个任务：PSA 哈希 / PSA AES-CBC / PSA ECDSA
+└── port/
+    ├── startup_stm32f4.s / stm32f407ve.ld / FreeRTOSConfig.h / stm32f4_hw.c/.h
+    ├── threading_alt.h          # mutex + condition_variable 两个类型
+    ├── psa_user_config_stm32.h  # 4.2 裁剪配置（PSA_WANT_* 级）
+    └── platform_glue.c          # _write / SysTick / 熵源 / 9 个线程回调
+```
+
+与 3.6 示例的 API 对照：
+
+| 操作 | 3.6 (Legacy) | 4.2 (PSA) |
+|------|-------------|-----------|
+| SHA-256 | `mbedtls_sha256()` | `psa_hash_compute(PSA_ALG_SHA_256, ...)` |
+| AES-CBC | `mbedtls_aes_crypt_cbc()`（IV 独立参数，会被原地修改） | `psa_cipher_encrypt(key_id, PSA_ALG_CBC_NO_PADDING, IV‖明文, ...)`（**IV 随数据走**：输入 IV‖明文，输出 IV‖密文） |
+| ECDSA | `mbedtls_ecdsa_genkey/write_signature/read_signature` | `psa_generate_key()` + `psa_sign_message(key_id, PSA_ALG_ECDSA(PSA_ALG_SHA_256), ...)` + `psa_verify_message()` |
+| 密钥 | 结构体直接持有（`mbedtls_ecp_keypair`） | 不透明句柄 `mbedtls_svc_key_id_t`，经 `psa_import_key/psa_generate_key` 获得，用完 `psa_destroy_key` |
+
+构建与预期输出见 `mbedtls_42/16_embedded_stm32/result.txt`。
+
+### 11.5 体积数据与裁剪效果
+
+两个示例的固件体积（`arm-none-eabi-size`，MinSizeRel + `--gc-sections`）：
+
+| 指标 | 3.6 (Legacy) | 4.2 (PSA) |
+|------|-------------|-----------|
+| text (Flash) | 97,092 B（≈95 KB / 1 MB，**9.5%**） | 47,364 B（≈47 KB / 1 MB，**4.6%**） |
+| data + bss (RAM) | 132 + 196,476 B（≈74 KB / 192 KB，**38%**） | 相同（同一 FreeRTOS 配置） |
+| crypto 库 text | libmbedcrypto.a：171,426 B（裁剪后实际链入 ≈59 KB） | libtfpsacrypto.a：74,352 B（裁剪后实际链入 ≈43 KB） |
+| FreeRTOS text | libfreertos.a：13,627 B | libfreertos.a：13,591 B（同一内核版本） |
+
+> 注：`size` 报告的 bss=196,476 包含了链接脚本中预留到 RAM 末尾的 `._heap`
+> 区域，实际静态 `.bss` 约 74 KB（见各示例 `result.txt` 中 app.map 数据）。
+
+> RAM 占比偏高主要来自 `configTOTAL_HEAP_SIZE = 64 KB`（heap_4 静态数组计入 bss）
+> 与 mbedTLS 的静态缓冲；生产环境可按任务栈实测值下调堆大小。
+
+**裁剪效果对比**：不裁剪时 3.6 的 `mbedcrypto` 全量编译约 1 MB+ 代码，
+本示例只保留 SHA-256 / AES / ECP(P-256) / ECDSA / 熵源，最终链入 Flash 不足 100 KB；
+4.2 通过 `PSA_WANT_*` 把算法矩阵从"全开"裁到 3 个算法 + 3 类密钥类型，
+再经 `--gc-sections` 消除框架中未引用的路径。
+
+---
+
+## 十二、常见问题
 
 ### Q: 为什么项目中 TLShandshakeDone 区分两种接收模式？
 握手阶段由 mbedTLS 库内部驱动 I/O（请求-应答模式），数据由 AP 网络代理直接返回。

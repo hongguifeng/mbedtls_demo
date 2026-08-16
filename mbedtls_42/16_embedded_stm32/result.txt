@@ -1,0 +1,71 @@
+╔══════════════════════════════════════════════╗
+║  mbedTLS 教程 - 16: 嵌入式集成 (STM32F407)  ║
+║  mbedTLS 4.2 + FreeRTOS + arm-none-eabi-gcc ║
+╚══════════════════════════════════════════════╝
+
+=== 构建信息 ===
+工具链   : arm-none-eabi-gcc 10.2.1 (GNU Arm Embedded Toolchain 10-2020-q4-major)
+目标     : STM32F407VE (Cortex-M4F, 168 MHz, 1 MB Flash / 192 KB RAM)
+RTOS     : FreeRTOS-Kernel V11.3.0 (GCC/ARM_CM4F port + heap_4)
+mbedTLS  : v4.2.0（PSA Crypto API，仅链接 tfpsacrypto）
+构建命令 : ./build.sh   （产物 build-arm/app.elf / app.bin / app.hex）
+提示     : 若本机已有 mbedtls 4.2 源码树，可加速构建：
+           MBEDTLS_SRC=/path/to/mbedtls-4.2 ./build.sh
+
+=== 裁剪后的体积（arm-none-eabi-size app.elf）===
+   text    data     bss     dec     hex filename
+  47364     132  196476  243972   3b904 app.elf
+
+Flash 实际占用（app.map）:
+  .isr_vector  0x13c   (316 B)
+  .text        0xa914  (~43 KB)
+  .rodata      0xeb4   (~3.7 KB)
+  .data 初值   0x84    (132 B)
+  Flash 合计   ≈ 47 KB / 1024 KB（约 4.6%）
+
+RAM 实际占用:
+  .data        0x84     (132 B)
+  .bss         0x12644  (~74 KB，其中 FreeRTOS 堆 64 KB + 任务栈)
+  RAM 合计     ≈ 74 KB / 192 KB（约 38%）
+  （size 报告的 bss=196476 包含了链接脚本中预留到 RAM 末尾的
+    ._heap 区域，实际静态 .bss 以 app.map 为准）
+
+各库贡献（未裁剪前静态库 text+data）:
+  libtfpsacrypto.a : text=74352 data=28   （裁剪后实际链入 ~43 KB，
+                                            --gc-sections 丢弃未引用函数）
+  libfreertos.a    : text=13591 data=8    （含 port.c / heap_4.c）
+
+对照：
+- 与 3.6 示例（09_embedded_stm32，text=97 KB）相比，4.2 的 PSA_WANT_*
+  裁剪粒度更细（按算法/曲线/密钥类型逐项开关），最终 Flash 占用减半。
+- 若使用默认配置（不裁剪），tfpsacrypto 会启用全部算法
+  （RSA / FFDH / ECDH / KDF / AEAD / SHA3 等），Flash 占用将显著增大；
+  且 4.2 的 platform_util.c 在裸机上若不提供 mbedtls_ms_time()
+  （MBEDTLS_PLATFORM_MS_TIME_ALT）会直接 #error，必须显式适配。
+
+=== 预期串口输出（USART1, 115200-8N1）===
+========================================
+ mbedTLS 4.2 + STM32F407 + FreeRTOS
+ PSA Crypto API embedded demo
+========================================
+
+--- [hash_task] PSA SHA-256 ---
+SHA-256: ec8a84aa271f6fb2d9e986d6135bfa5828bf7920a78674953749fb404c8967f8
+
+--- [aes_task] PSA AES-128-CBC ---
+Ciphertext: 84e76911b166620f2f5985d4d16ffa73
+AES round-trip OK: Hello, embedded!
+
+--- [ecc_task] PSA ECDSA P-256 ---
+ECDSA P-256 keypair generated
+Signature: <64 字节 r||s，每次运行不同（依赖硬件 RNG）>
+ECDSA verify OK
+
+说明：
+- SHA-256 与 AES-CBC 结果为确定性输出（固定输入/密钥/IV），可逐字节核对。
+- PSA 的 ECDSA 签名是固定 64 字节的 r||s 格式（不同于 3.6 Legacy API
+  的 DER 编码），每次上电都不同（随机 k 来自 STM32F4 硬件 RNG），但验签必须通过。
+- 三个任务并发运行，mbedTLS 内部全局状态由 FreeRTOS 互斥锁保护
+  （MBEDTLS_THREADING_C + MBEDTLS_THREADING_ALT，9 个回调）。
+- 熵源：MBEDTLS_PSA_DRIVER_GET_ENTROPY + mbedtls_platform_get_entropy()
+  读取 STM32F4 硬件 RNG（RNG_DRTR）。

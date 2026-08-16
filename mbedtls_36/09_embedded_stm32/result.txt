@@ -1,0 +1,60 @@
+╔══════════════════════════════════════════════╗
+║  mbedTLS 教程 - 09: 嵌入式集成 (STM32F407)  ║
+║  mbedTLS 3.6 + FreeRTOS + arm-none-eabi-gcc ║
+╚══════════════════════════════════════════════╝
+
+=== 构建信息 ===
+工具链   : arm-none-eabi-gcc 10.2.1 (GNU Arm Embedded Toolchain 10-2020-q4-major)
+目标     : STM32F407VE (Cortex-M4F, 168 MHz, 1 MB Flash / 192 KB RAM)
+RTOS     : FreeRTOS-Kernel V11.3.0 (GCC/ARM_CM4F port + heap_4)
+mbedTLS  : v3.6.0 LTS（Legacy API，仅链接 mbedcrypto）
+构建命令 : ./build.sh   （产物 build-arm/app.elf / app.bin / app.hex）
+
+=== 裁剪后的体积（arm-none-eabi-size app.elf）===
+   text    data     bss     dec     hex filename
+  97092     132  196476  293700   47b44 app.elf
+
+Flash 实际占用（app.map）:
+  .isr_vector  0x13c   (316 B)
+  .text        0xec5c  (~59 KB)
+  .rodata      0x8dac  (~35 KB，含错误字符串表等)
+  .data 初值   0x84    (132 B)
+  Flash 合计   ≈ 97 KB / 1024 KB（约 9.5%）
+
+RAM 实际占用:
+  .data        0x84     (132 B)
+  .bss         0x123a4  (~74 KB，其中 FreeRTOS 堆 64 KB + 任务栈)
+  RAM 合计     ≈ 74 KB / 192 KB（约 38%）
+
+各库贡献（未裁剪前静态库 text+data）:
+  libmbedcrypto.a : text=171426 data=96   （裁剪后实际链入 ~59 KB，
+                                            --gc-sections 丢弃未引用函数）
+  libfreertos.a   : text=13627  data=8    （含 port.c / heap_4.c）
+
+对照：若使用默认配置（不裁剪），mbedcrypto 会额外编译 RSA/X.509/TLS/PSA
+等模块，Flash 占用将超过 200 KB，且 net_sockets.c / timing.c 在裸机上
+根本无法通过编译（依赖 POSIX socket / gettimeofday）。
+
+=== 预期串口输出（USART1, 115200-8N1）===
+========================================
+ mbedTLS 3.6 + STM32F407 + FreeRTOS
+ Legacy API embedded demo
+========================================
+
+--- [hash_task] SHA-256 ---
+SHA-256: ec8a84aa271f6fb2d9e986d6135bfa5828bf7920a78674953749fb404c8967f8
+
+--- [aes_task] AES-128-CBC ---
+Ciphertext: 84e76911b166620f2f5985d4d16ffa73
+AES round-trip OK: Hello, embedded!
+
+--- [ecc_task] ECDSA P-256 ---
+ECDSA P-256 keypair generated
+Signature: <64 字节 DER，每次运行不同（依赖硬件 RNG）>
+ECDSA verify OK
+
+说明：
+- SHA-256 与 AES-CBC 结果为确定性输出（固定输入/密钥/IV），可逐字节核对。
+- ECDSA 签名每次上电都不同（随机 k 来自 STM32F4 硬件 RNG），但验签必须通过。
+- 三个任务并发运行，mbedTLS 内部全局状态由 FreeRTOS 互斥锁保护
+  （MBEDTLS_THREADING_C + MBEDTLS_THREADING_ALT）。
